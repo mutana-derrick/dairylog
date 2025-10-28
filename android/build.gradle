@@ -1,3 +1,18 @@
+// NEW BLOCK AT THE TOP:
+buildscript {
+    ext.kotlin_version = '2.0.0' // Updated Kotlin version to 2.0.0
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Note: The Android Gradle Plugin version here might need adjusting 
+        // if I encounter a new error, but I'll try this first.
+        classpath 'com.android.tools.build:gradle:7.4.2' 
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+// END NEW BLOCK
 allprojects {
     repositories {
         google()
