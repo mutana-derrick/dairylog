@@ -12,6 +12,8 @@ class CustomInputField extends StatelessWidget {
   final int? maxLines;
   final Widget? prefixIcon;
   final Widget? suffixIcon;
+  final String? suffixText;
+  final void Function(String)? onChanged;
 
   const CustomInputField({
     super.key,
@@ -24,6 +26,8 @@ class CustomInputField extends StatelessWidget {
     this.maxLines = 1,
     this.prefixIcon,
     this.suffixIcon,
+    this.suffixText,
+    this.onChanged,
   });
 
   @override
@@ -48,6 +52,7 @@ class CustomInputField extends StatelessWidget {
           obscureText: obscureText,
           maxLines: maxLines,
           validator: validator,
+          onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hintText,
             filled: true,
@@ -56,6 +61,7 @@ class CustomInputField extends StatelessWidget {
                 const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             prefixIcon: prefixIcon,
             suffixIcon: suffixIcon,
+            suffixText: suffixText,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.divider),

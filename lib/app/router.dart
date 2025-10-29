@@ -1,13 +1,13 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/dashboard/presentation/screens/home_screen.dart';
+import '../features/farmers/presentation/screens/add_farmer_screen.dart';
 import '../features/farmers/presentation/screens/farmers_screen.dart';
+import '../features/milk_records/presentation/screens/add_milk_record_screen.dart';
 import '../features/milk_records/presentation/screens/milk_records_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/reports/presentation/screens/reports_screen.dart';
@@ -65,9 +65,19 @@ GoRouter createRouter(Ref ref) {
         builder: (context, state) => const FarmersScreen(),
       ),
       GoRoute(
+        path: '/addFarmers',
+        name: 'add-farmers',
+        builder: (context, state) => const AddFarmerScreen(),
+      ),
+      GoRoute(
         path: '/milk-records',
         name: 'milk-records',
         builder: (context, state) => const MilkRecordsScreen(),
+      ),
+      GoRoute(
+        path: '/addMilkRecord',
+        name: 'add-milk-record',
+        builder: (context, state) => const AddMilkRecordScreen(),
       ),
       GoRoute(
         path: '/reports',

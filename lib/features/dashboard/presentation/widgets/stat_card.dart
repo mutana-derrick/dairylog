@@ -9,7 +9,10 @@ class StatCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.value,
-    required this.color,  IconData? icon,
+    required this.color,  
+    IconData? icon, 
+    String? subtitle, 
+    double? trend,
   });
 
   @override
