@@ -3,34 +3,40 @@
 /// Keeping endpoints centralized helps maintain consistency and makes it
 /// easier to switch environments (e.g., dev, staging, prod).
 class ApiEndpoints {
-  // Base URL
-  static const String baseUrl = "https://api.dairyconnect.rw/api/v1";
+  // Base URL (used in DioClient)
+  static const String baseUrl = "https://sea-lion-app-p7ri7.ondigitalocean.app/api";
 
-  // Authentication
-  static const String login = "$baseUrl/auth/login";
-  static const String logout = "$baseUrl/auth/logout";
+  // ===== Authentication =====
+  static const String login = "/auth/login";           
+  static const String logout = "/auth/logout";         
+  static const String refreshToken = "/auth/refresh";  // For future token refresh
 
-  // Farmers
-  static const String farmers = "$baseUrl/farmers";
-  static String farmerByPhone(String phone) => "$baseUrl/farmers/phone/$phone";
+  // ===== Farmers =====
+  static const String farmers = "/farmers";            
+  static String farmerById(String id) => "/farmers/$id";
+  static String farmerByPhone(String phone) => "/farmers/phone/$phone";
+  
+  // ===== Milk Records =====
+  static const String milkRecords = "/milk-records";   
+  static String milkRecordById(String id) => "/milk-records/$id";
+  static const String addMilkRecord = "/milk-records"; // POST to same endpoint
+  static String milkRecordsByFarmer(String farmerId) => "/milk-records/farmer/$farmerId";
 
-  // Milk Records
-  static const String milkRecords = "$baseUrl/milk-records";
-  static String milkRecordById(String id) => "$baseUrl/milk-records/$id";
-  static const String addMilkRecord = "$baseUrl/milk-records/add";
-  static const String fetchMilkRecords = "$baseUrl/milk-records/fetch";
+  // ===== Reports =====
+  static const String reports = "/reports";            
+  static const String dailyReport = "/reports/daily";
+  static const String weeklyReport = "/reports/weekly";
+  static const String monthlyReport = "/reports/monthly";
 
-  // Reports
-  static const String reports = "$baseUrl/reports";
-  static const String monthlyReport = "$baseUrl/reports/monthly";
-  static const String dailyReport = "$baseUrl/reports/daily";
+  // ===== Profile =====
+  static const String profile = "/profile";            
+  static const String updateProfile = "/profile";
 
-  // Profile
-  static const String profile = "$baseUrl/profile";
+  // ===== Sync (Offline) =====
+  static const String sync = "/sync";                  
+  static const String syncFarmers = "/sync/farmers";
+  static const String syncMilkRecords = "/sync/milk-records";
 
-  // Sync (for offline data upload)
-  static const String sync = "$baseUrl/sync";
-
-  // SMS
-  static const String sendSms = "$baseUrl/sms/send";
+  // ===== SMS =====
+  static const String sendSms = "/sms/send";           
 }

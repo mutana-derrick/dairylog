@@ -1,38 +1,64 @@
-/// Custom exception classes used to handle different data source errors.
-///
-/// These are caught in repositories and then converted into `Failure`
-/// objects for consistent error handling across the app.
-class ServerException implements Exception {
+/// Base exception class
+abstract class AppException implements Exception {
   final String message;
-  const ServerException([this.message = "Server error occurred"]);
+  final int? statusCode;
+
+  const AppException(this.message, [this.statusCode]);
+
+  @override
+  String toString() => message;
 }
 
-class CacheException implements Exception {
-  final String message;
-  const CacheException([this.message = "Cache error occurred"]);
+/// Network-related exceptions
+class NetworkException extends AppException {
+  const NetworkException(String message) : super(message, 0);
 }
 
-class NetworkException implements Exception {
-  final String message;
-  const NetworkException([this.message = "No internet connection"]);
+/// Server error (5xx)
+class ServerException extends AppException {
+  const ServerException(String message) : super(message, 500);
 }
 
-class UnauthorizedException implements Exception {
-  final String message;
-  const UnauthorizedException([this.message = "Unauthorized access"]);
+/// Unauthorized (401, 403)
+class UnauthorizedException extends AppException {
+  const UnauthorizedException(String message) : super(message, 401);
 }
 
-class NotFoundException implements Exception {
-  final String message;
-  const NotFoundException([this.message = "Requested data not found"]);
+/// Not found (404)
+class NotFoundException extends AppException {
+  const NotFoundException(String message) : super(message, 404);
 }
 
-class ValidationException implements Exception {
-  final String message;
-  const ValidationException([this.message = "Invalid input data"]);
+/// Validation error (400, 422)
+class ValidationException extends AppException {
+  const ValidationException(String message) : super(message, 400);
 }
 
-class UnknownException implements Exception {
-  final String message;
-  const UnknownException([this.message = "An unknown error occurred"]);
+/// Unknown error
+class UnknownException extends AppException {
+  const UnknownException(super.message);
+}
+
+/// API Response wrapper exception
+class ApiResponseException extends AppException {
+  final String code;
+  final dynamic details;
+
+  const ApiResponseException({
+    required this.code,
+    required String message,
+    int? statusCode,
+    this.details,
+  }) : super(message, statusCode);
+
+  factory ApiResponseException.fromJson(Map<String, dynamic> json) {
+    final error = json['error'] as Map<String, dynamic>?;
+    
+    return ApiResponseException(
+      code: error?['code'] ?? 'UNKNOWN_ERROR',
+      message: error?['message'] ?? 'An error occurred',
+      statusCode: error?['statusCode'] as int?,
+      details: error,
+    );
+  }
 }

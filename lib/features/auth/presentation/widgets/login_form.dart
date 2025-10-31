@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../app/providers.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/custom_input_field.dart';
 import '../../../../core/widgets/custom_button.dart';
+import '../../../../core/utils/toast_utils.dart';
+import '../../providers/auth_provider.dart';
 
 class LoginForm extends ConsumerStatefulWidget {
   const LoginForm({super.key});
@@ -15,16 +16,14 @@ class LoginForm extends ConsumerStatefulWidget {
 
 class _LoginFormState extends ConsumerState<LoginForm> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
-  bool _isLoading = false;
-  bool _rememberMe = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -32,67 +31,52 @@ class _LoginFormState extends ConsumerState<LoginForm> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    try {
+      await ref.read(authProvider.notifier).login(
+            _usernameController.text.trim(),
+            _passwordController.text,
+          );
 
-    // Simulate API call delay
-    await Future.delayed(const Duration(milliseconds: 1500));
+      if (!mounted) return;
 
-    if (!mounted) return;
-
-    // Update auth state to logged in
-    ref.read(authStateProvider.notifier).state = true;
-
-    // Navigate to home
-    context.go('/home');
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white),
-            SizedBox(width: 12),
-            Text('Login successful! Welcome back.'),
-          ],
-        ),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-
-    setState(() {
-      _isLoading = false;
-    });
+      // Navigate to home on success
+      context.go('/home');
+      ToastUtils.showSuccess('Login successful! Welcome back.');
+    } catch (e) {
+      if (!mounted) return;
+      
+      // Show error message
+      final errorMessage = e.toString().replaceAll('Exception: ', '');
+      ToastUtils.showError(errorMessage);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Email field
+          // Username field
           CustomInputField(
-            controller: _emailController,
-            labelText: 'Email Address',
-            hintText: 'Enter your email',
-            keyboardType: TextInputType.emailAddress,
+            controller: _usernameController,
+            labelText: 'Username',
+            hintText: 'Enter your username',
+            keyboardType: TextInputType.text,
             prefixIcon: Icon(
-              Icons.email_outlined,
+              Icons.person,
               color: AppColors.primary.withOpacity(0.7),
             ),
+            enabled: !authState.isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter your email';
+                return 'Please enter your username';
               }
-              if (!value.contains('@')) {
-                return 'Please enter a valid email';
+              if (value.length < 3) {
+                return 'Username must be at least 3 characters';
               }
               return null;
             },
@@ -106,6 +90,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
             labelText: 'Password',
             hintText: 'Enter your password',
             obscureText: _obscurePassword,
+            enabled: !authState.isLoading,
             prefixIcon: Icon(
               Icons.lock_outline,
               color: AppColors.primary.withOpacity(0.7),
@@ -134,95 +119,42 @@ class _LoginFormState extends ConsumerState<LoginForm> {
             },
           ),
 
-          const SizedBox(height: 16),
-
-          // Remember me checkbox
-          Row(
-            children: [
-              SizedBox(
-                height: 24,
-                width: 24,
-                child: Checkbox(
-                  value: _rememberMe,
-                  onChanged: (value) {
-                    setState(() {
-                      _rememberMe = value ?? false;
-                    });
-                  },
-                  activeColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Remember me',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-
           const SizedBox(height: 32),
 
           // Login button
           CustomButton(
-            text: _isLoading ? 'Signing in...' : 'Sign In',
-            onPressed: _isLoading ? () {} : () => _handleLogin(),
-            isLoading: _isLoading,
+            text: authState.isLoading ? 'Signing in...' : 'Sign In',
+            onPressed: authState.isLoading ? null : _handleLogin,
+            isLoading: authState.isLoading,
           ),
 
-          const SizedBox(height: 16),
-
-          // Demo credentials hint (remove in production)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.info.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppColors.info.withOpacity(0.3),
-                width: 1,
+          // Show error message if any
+          if (authState.errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      authState.errorMessage!,
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  color: AppColors.info,
-                  size: 20,
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Demo Mode',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.info,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Use any email and password (6+ chars) to test',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ],
       ),
     );

@@ -27,7 +27,8 @@ class CustomInputField extends StatelessWidget {
     this.prefixIcon,
     this.suffixIcon,
     this.suffixText,
-    this.onChanged,
+    this.onChanged, 
+    bool? enabled,
   });
 
   @override

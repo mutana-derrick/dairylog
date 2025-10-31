@@ -8,7 +8,7 @@ part of 'milk_record_model.dart';
 
 class MilkRecordAdapter extends TypeAdapter<MilkRecord> {
   @override
-  final int typeId = 2;
+  final int typeId = 30;
 
   @override
   MilkRecord read(BinaryReader reader) {

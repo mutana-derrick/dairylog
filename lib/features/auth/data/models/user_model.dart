@@ -2,7 +2,7 @@ import 'package:hive/hive.dart';
 
 part 'user_model.g.dart';
 
-@HiveType(typeId: 0)
+@HiveType(typeId: 10)
 class UserModel extends HiveObject {
   @HiveField(0)
   final String id;
@@ -17,31 +17,52 @@ class UserModel extends HiveObject {
   final String phone;
 
   @HiveField(4)
-  final String token; // for JWT if used later
+  final String? accessToken;
+
+  @HiveField(5)
+  final String? refreshToken;
 
   UserModel({
     required this.id,
     required this.name,
     required this.email,
     required this.phone,
-    required this.token,
+    this.accessToken,
+    this.refreshToken,
   });
 
-  // Optional: factory method from JSON
+  // From JSON (for API responses that include user info)
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        email: json['email'] as String,
-        phone: json['phone'] as String,
-        token: json['token'] as String? ?? '',
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        email: json['email'] as String? ?? '',
+        phone: json['phone'] as String? ?? '',
+        accessToken: json['accessToken'] as String?,
+        refreshToken: json['refreshToken'] as String?,
       );
 
-  // Optional: convert to JSON
+  // To JSON
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'email': email,
         'phone': phone,
-        'token': token,
+        'accessToken': accessToken,
+        'refreshToken': refreshToken,
       };
+
+  // Copy with tokens
+  UserModel copyWithTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) {
+    return UserModel(
+      id: id,
+      name: name,
+      email: email,
+      phone: phone,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
+  }
 }

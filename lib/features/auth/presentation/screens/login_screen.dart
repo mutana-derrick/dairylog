@@ -4,8 +4,6 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../widgets/login_form.dart';
 
-
-
 class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
 
@@ -106,9 +104,9 @@ class LoginScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: AppSpacing.xl),
-                    
+
                     // Login form card
                     Container(
                       decoration: BoxDecoration(
@@ -116,98 +114,18 @@ class LoginScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(AppRadius.lg),
                         boxShadow: AppTheme.cardShadow,
                       ),
-                      padding: EdgeInsets.all(isSmallScreen ? AppSpacing.lg : AppSpacing.xl),
+                      padding: EdgeInsets.all(
+                          isSmallScreen ? AppSpacing.lg : AppSpacing.xl),
                       child: const LoginForm(),
                     ),
-                    
+
                     const SizedBox(height: AppSpacing.xl),
-                    
-                    // Feature highlights
-                    _buildFeatureHighlights(isSmallScreen),
                   ],
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildFeatureHighlights(bool isSmallScreen) {
-    return Column(
-      children: [
-        const Text(
-          'Why choose Dairy Manager?',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          alignment: WrapAlignment.center,
-          children: [
-            _buildFeatureChip(
-              icon: Icons.cloud_off_outlined,
-              label: 'Works Offline',
-              color: const Color(0xFF2196F3),
-            ),
-            _buildFeatureChip(
-              icon: Icons.sms_outlined,
-              label: 'SMS Alerts',
-              color: AppColors.warning,
-            ),
-            _buildFeatureChip(
-              icon: Icons.analytics_outlined,
-              label: 'Smart Reports',
-              color: const Color(0xFF9C27B0),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeatureChip({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: 10,
-      ),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 18,
-            color: color,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
       ),
     );
   }

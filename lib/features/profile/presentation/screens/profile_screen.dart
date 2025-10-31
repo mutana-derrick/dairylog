@@ -5,7 +5,6 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../common/widgets/bottom_nav_bar.dart';
-import '../../../dashboard/presentation/widgets/stat_card.dart';
 import '../../providers/profile_providers.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -56,14 +55,14 @@ class ProfileScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () {
-              // Navigate to edit profile screen
-            },
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.edit_outlined),
+        //     onPressed: () {
+        //       // Navigate to edit profile screen
+        //     },
+        //   ),
+        // ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -152,31 +151,6 @@ class ProfileScreen extends ConsumerWidget {
             ),
 
 // ✅ Stats Cards — removed Transform.translate to fix overlap
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md)
-                  .copyWith(top: AppSpacing.md),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: StatCard(
-                      title: 'Total Farmers',
-                      value: profileData['totalFarmers'].toString(),
-                      icon: Icons.people_outline,
-                      color: AppColors.warning,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: StatCard(
-                      title: 'Monthly Milk',
-                      value: '${profileData['monthlyMilkTotal']}L',
-                      icon: Icons.water_drop_outlined,
-                      color: AppColors.info,
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
             // Contact Information Section
             Padding(
@@ -223,34 +197,34 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.lg),
 
                   // Settings Section
-                  Text(
-                    'Settings',
-                    style: AppTextStyles.titleMedium.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _buildActionCard(
-                    icon: Icons.lock_outline,
-                    title: 'Change Password',
-                    subtitle: 'Update your account password',
-                    onTap: () {
-                      // Navigate to change password screen
-                    },
-                    theme: theme,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
+                  // Text(
+                  //   'Settings',
+                  //   style: AppTextStyles.titleMedium.copyWith(
+                  //     color: AppColors.textPrimary,
+                  //     fontWeight: FontWeight.bold,
+                  //   ),
+                  // ),
+                  // const SizedBox(height: AppSpacing.sm),
+                  // _buildActionCard(
+                  //   icon: Icons.lock_outline,
+                  //   title: 'Change Password',
+                  //   subtitle: 'Update your account password',
+                  //   onTap: () {
+                  //     // Navigate to change password screen
+                  //   },
+                  //   theme: theme,
+                  // ),
+                  // const SizedBox(height: AppSpacing.sm),
 
-                  _buildActionCard(
-                    icon: Icons.language_outlined,
-                    title: 'Language',
-                    subtitle: 'English',
-                    onTap: () {
-                      // Navigate to language settings
-                    },
-                    theme: theme,
-                  ),
+                  // _buildActionCard(
+                  //   icon: Icons.language_outlined,
+                  //   title: 'Language',
+                  //   subtitle: 'English',
+                  //   onTap: () {
+                  //     // Navigate to language settings
+                  //   },
+                  //   theme: theme,
+                  // ),
 
                   const SizedBox(height: AppSpacing.lg),
 

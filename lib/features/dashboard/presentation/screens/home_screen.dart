@@ -184,35 +184,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.success.withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.trending_up,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '+${weeklyGrowth.toStringAsFixed(1)}%',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -257,34 +228,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             value: totalFarmers.toString(),
                             subtitle: 'registered',
                             icon: Icons.group,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Second Row - Quality & Average
-                    Row(
-                      children: [
-                        Expanded(
-                          child: StatCard(
-                            title: 'Avg Quality',
-                            value: averageQuality.toStringAsFixed(1),
-                            subtitle: 'out of 10',
-                            icon: Icons.star,
-                            color: AppColors.warning,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: StatCard(
-                            title: 'Avg per Farmer',
-                            value:
-                                '${(todayMilkLiters / farmersDeliveredToday).toStringAsFixed(1)}L',
-                            subtitle: 'today',
-                            icon: Icons.analytics,
                             color: AppColors.info,
                           ),
                         ),

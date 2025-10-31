@@ -17,35 +17,35 @@ abstract class Failure {
 
 /// Represents a failure due to server or API issues.
 class ServerFailure extends Failure {
-  const ServerFailure([String message = "Server failure occurred"]) : super(message);
+  const ServerFailure([super.message = "Server failure occurred"]);
 }
 
 /// Represents a failure due to missing cache or read/write errors.
 class CacheFailure extends Failure {
-  const CacheFailure([String message = "Cache failure occurred"]) : super(message);
+  const CacheFailure([super.message = "Cache failure occurred"]);
 }
 
 /// Represents a failure due to no or unstable internet connection.
 class NetworkFailure extends Failure {
-  const NetworkFailure([String message = "No internet connection"]) : super(message);
+  const NetworkFailure([super.message = "No internet connection"]);
 }
 
 /// Represents a failure due to unauthorized or invalid credentials.
 class UnauthorizedFailure extends Failure {
-  const UnauthorizedFailure([String message = "Unauthorized access"]) : super(message);
+  const UnauthorizedFailure([super.message = "Unauthorized access"]);
 }
 
 /// Represents a failure when requested data was not found.
 class NotFoundFailure extends Failure {
-  const NotFoundFailure([String message = "Requested data not found"]) : super(message);
+  const NotFoundFailure([super.message = "Requested data not found"]);
 }
 
 /// Represents a failure due to invalid input or validation error.
 class ValidationFailure extends Failure {
-  const ValidationFailure([String message = "Invalid input data"]) : super(message);
+  const ValidationFailure([super.message = "Invalid input data"]);
 }
 
 /// Represents any unknown or unclassified failure.
 class UnknownFailure extends Failure {
-  const UnknownFailure([String message = "An unknown error occurred"]) : super(message);
+  const UnknownFailure([super.message = "An unknown error occurred"]);
 }

@@ -5,7 +5,7 @@ import 'providers.dart';
 
 /// Root widget for the entire app.
 class MyApp extends ConsumerWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

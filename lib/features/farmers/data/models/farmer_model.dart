@@ -1,8 +1,8 @@
 import 'package:hive/hive.dart';
-
+ 
 part 'farmer_model.g.dart';
 
-@HiveType(typeId: 0)
+@HiveType(typeId: 20)
 class Farmer extends HiveObject {
   @HiveField(0)
   final String id; // unique identifier (could be UUID)

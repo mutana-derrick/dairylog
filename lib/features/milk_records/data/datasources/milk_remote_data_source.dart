@@ -32,7 +32,7 @@ class MilkRemoteDataSourceImpl implements MilkRemoteDataSource {
   @override
   Future<List<MilkRecord>> fetchMilkRecords({DateTime? date}) async {
     try {
-      final response = await dio.get(ApiEndpoints.fetchMilkRecords,
+      final response = await dio.get(ApiEndpoints.milkRecords,
           queryParameters: date != null
               ? {'date': date.toIso8601String()}
               : null);

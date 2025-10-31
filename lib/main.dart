@@ -1,7 +1,8 @@
 import 'dart:io';
-import 'package:dairylog/hive_adapters/user_adapter.dart';
-import 'hive_adapters/farmer_adapter.dart';
-import 'hive_adapters/milk_record_adapter.dart';
+// import 'package:dairylog/hive_adapters/user_adapter.dart';
+import 'features/auth/data/models/user_model.dart';
+import 'features/farmers/data/models/farmer_model.dart';
+import 'features/milk_records/data/models/milk_record_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
@@ -24,12 +25,12 @@ Future<void> main() async {
   Hive.init(appDocDir.path);
 
   // Register Hive TypeAdapters
-  // NOTE: Make sure you implement the adapters in /lib/hive_adapters/
-  Hive.registerAdapter(FarmerHiveModelAdapter());
-  Hive.registerAdapter(MilkRecordHiveModelAdapter());
-  Hive.registerAdapter(UserHiveModelAdapter());
+// Register adapters with NEW unique typeIds
+  Hive.registerAdapter(UserModelAdapter());    // typeId: 10
+  Hive.registerAdapter(FarmerAdapter());       // typeId: 20
+  Hive.registerAdapter(MilkRecordAdapter());   // typeId: 30
 
-  // Open boxes (use names from core/constants/hive_boxes.dart)
+  // Open boxes 
   // Opening boxes at startup ensures they are ready for the offline-first flows.
   // You can lazy-open additional boxes within data sources if needed.
   await Hive.openBox<dynamic>(HiveBoxes.farmersBox);

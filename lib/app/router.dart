@@ -11,22 +11,26 @@ import '../features/milk_records/presentation/screens/add_milk_record_screen.dar
 import '../features/milk_records/presentation/screens/milk_records_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/reports/presentation/screens/reports_screen.dart';
-import 'providers.dart';
+import '../features/auth/providers/auth_provider.dart'; 
 
 /// Creates and configures the app's GoRouter instance.
-/// This function is called from app/providers.dart (appRouterProvider).
 GoRouter createRouter(Ref ref) {
-  final authState = ref.watch(authStateProvider);
+  //  auth provider
+  final authState = ref.watch(authProvider);
 
   return GoRouter(
     initialLocation: '/splash',
     debugLogDiagnostics: true,
-    refreshListenable:
-        GoRouterRefreshStream(ref.watch(authStateProvider.notifier).stream),
+    
+    //  Listen to authProvider changes
+    refreshListenable: GoRouterRefreshStream(
+      ref.watch(authProvider.notifier).stream,
+    ),
 
     /// Redirects help ensure correct navigation depending on authentication.
     redirect: (context, state) {
-      final isLoggedIn = authState;
+      // ✅ Use authState.isAuthenticated
+      final isLoggedIn = authState.isAuthenticated;
       final isOnLogin = state.matchedLocation == '/login';
       final isOnSplash = state.matchedLocation == '/splash';
 
@@ -94,7 +98,6 @@ GoRouter createRouter(Ref ref) {
 }
 
 /// Utility class that helps GoRouter rebuild when Riverpod providers update.
-/// It listens to a Riverpod stream and notifies the router.
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();

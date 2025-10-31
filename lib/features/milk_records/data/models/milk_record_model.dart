@@ -2,7 +2,7 @@ import 'package:hive/hive.dart';
 
 part 'milk_record_model.g.dart';
 
-@HiveType(typeId: 2)
+@HiveType(typeId: 30)
 class MilkRecord extends HiveObject {
   @HiveField(0)
   final String farmerPhoneNumber;

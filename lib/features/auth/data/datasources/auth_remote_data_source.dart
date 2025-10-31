@@ -1,35 +1,32 @@
-import 'package:dio/dio.dart';
-import '../models/user_model.dart';
+
 import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/network/dio_client.dart';
+import '../models/login_request.dart';
+import '../models/login_response.dart';
 
 abstract class AuthRemoteDataSource {
-  /// Logs in the user with email/phone and password.
-  Future<UserModel> login({required String email, required String password});
+  Future<LoginResponse> login(LoginRequest request);
+  Future<void> logout();
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
-  final Dio dio;
+  final DioClient _dioClient;
 
-  AuthRemoteDataSourceImpl({required this.dio});
+  AuthRemoteDataSourceImpl({required DioClient dioClient})
+      : _dioClient = dioClient;
 
   @override
-  Future<UserModel> login({required String email, required String password}) async {
-    try {
-      final response = await dio.post(
-        ApiEndpoints.login,
-        data: {
-          'email': email,
-          'password': password,
-        },
-      );
+  Future<LoginResponse> login(LoginRequest request) async {
+    final response = await _dioClient.post(
+      ApiEndpoints.login,
+      data: request.toJson(),
+    );
 
-      if (response.statusCode == 200) {
-        return UserModel.fromJson(response.data['data']);
-      } else {
-        throw Exception('Login failed with status: ${response.statusCode}');
-      }
-    } on DioError catch (e) {
-      throw Exception('Login error: ${e.message}');
-    }
+    return LoginResponse.fromJson(response.data);
+  }
+
+  @override
+  Future<void> logout() async {
+    await _dioClient.post(ApiEndpoints.logout);
   }
 }

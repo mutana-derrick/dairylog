@@ -8,7 +8,7 @@ part of 'farmer_model.dart';
 
 class FarmerAdapter extends TypeAdapter<Farmer> {
   @override
-  final int typeId = 0;
+  final int typeId = 20;
 
   @override
   Farmer read(BinaryReader reader) {
