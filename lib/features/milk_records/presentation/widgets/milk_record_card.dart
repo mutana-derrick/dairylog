@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/utils/date_formatter.dart';
 import '../../data/models/milk_record_model.dart';
 
 class MilkRecordCard extends StatelessWidget {
@@ -20,8 +20,6 @@ class MilkRecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalAmount = record.quantity * record.price;
-
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -37,11 +35,11 @@ class MilkRecordCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Row - Phone & Date
+              // Header Row - Farmer Name & Date
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Phone Number with Icon
+                  // Farmer Info
                   Expanded(
                     child: Row(
                       children: [
@@ -52,7 +50,7 @@ class MilkRecordCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
-                            Icons.phone,
+                            Icons.person,
                             color: AppColors.primary,
                             size: 18,
                           ),
@@ -62,21 +60,22 @@ class MilkRecordCard extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Farmer',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
                               Text(
-                                record.farmerPhoneNumber,
+                                record.farmerName,
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                record.farmerPhone,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
                             ],
@@ -101,7 +100,7 @@ class MilkRecordCard extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      DateFormatter.formatShortDate(record.date),
+                      DateFormat('MMM dd').format(record.recordedAt),
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -123,12 +122,12 @@ class MilkRecordCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    // Quantity
+                    // Liters
                     Expanded(
                       child: _StatItem(
                         icon: Icons.water_drop,
-                        label: 'Quantity',
-                        value: '${record.quantity.toStringAsFixed(1)} L',
+                        label: 'Liters',
+                        value: '${record.liters.toStringAsFixed(1)} L',
                         color: AppColors.info,
                       ),
                     ),
@@ -144,7 +143,7 @@ class MilkRecordCard extends StatelessWidget {
                       child: _StatItem(
                         icon: Icons.payments,
                         label: 'Price/L',
-                        value: '${record.price.toStringAsFixed(0)} RWF',
+                        value: '${record.pricePerLiter.toStringAsFixed(0)} RWF',
                         color: AppColors.warning,
                       ),
                     ),
@@ -160,7 +159,7 @@ class MilkRecordCard extends StatelessWidget {
                       child: _StatItem(
                         icon: Icons.account_balance_wallet,
                         label: 'Total',
-                        value: '${totalAmount.toStringAsFixed(0)} RWF',
+                        value: '${record.totalAmount.toStringAsFixed(0)} RWF',
                         color: AppColors.success,
                       ),
                     ),

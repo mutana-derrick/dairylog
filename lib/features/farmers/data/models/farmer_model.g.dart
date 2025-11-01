@@ -17,19 +17,20 @@ class FarmerAdapter extends TypeAdapter<Farmer> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Farmer(
-      id: fields[0] as String,
+      id: fields[0] as int,
       name: fields[1] as String,
       phoneNumber: fields[2] as String,
       sector: fields[3] as String,
       cell: fields[4] as String,
       village: fields[5] as String,
+      createdAt: fields[6] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Farmer obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class FarmerAdapter extends TypeAdapter<Farmer> {
       ..writeByte(4)
       ..write(obj.cell)
       ..writeByte(5)
-      ..write(obj.village);
+      ..write(obj.village)
+      ..writeByte(6)
+      ..write(obj.createdAt);
   }
 
   @override

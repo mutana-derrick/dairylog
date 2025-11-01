@@ -80,13 +80,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Logout
-  Future<void> logout() async {
-    try {
-      await _repository.logout();
-    } finally {
-      state = AuthState(); // Reset to initial state
-    }
+Future<void> logout() async {
+  state = state.copyWith(isLoading: true);
+
+  try {
+    await _repository.logout();
+    state = AuthState(); // Reset to initial state
+  } catch (e) {
+    state = AuthState(); // Reset anyway
+    rethrow;
   }
+}
 }
 
 // Provider

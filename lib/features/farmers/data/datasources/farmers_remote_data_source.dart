@@ -1,41 +1,74 @@
-import 'package:dio/dio.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
-import '../models/farmer_model.dart';
-
+import '../models/create_farmer_request.dart';
+import '../models/farmer_response.dart';
+import '../models/farmers_list_response.dart';
+import '../models/farmer_lookup_response.dart';
 
 abstract class FarmersRemoteDataSource {
-  Future<List<Farmer>> fetchAllFarmers();
-  Future<Farmer> addFarmer(Farmer farmer);
-  Future<Farmer> updateFarmer(Farmer farmer);
-  Future<void> deleteFarmer(String id);
+  Future<FarmersListResponse> getFarmers({
+    int page = 1,
+    int limit = 100,
+    String? search,
+    String sortBy = 'createdAt',
+    String sortOrder = 'desc',
+  });
+
+  Future<FarmerResponse> createFarmer(CreateFarmerRequest request);
+  
+  Future<FarmerLookupResponse> lookupFarmer(String phoneNumber); // ✅ Added
 }
 
 class FarmersRemoteDataSourceImpl implements FarmersRemoteDataSource {
-  final Dio dio;
+  final DioClient _dioClient;
 
-  FarmersRemoteDataSourceImpl(this.dio);
+  FarmersRemoteDataSourceImpl({required DioClient dioClient})
+      : _dioClient = dioClient;
 
   @override
-  Future<List<Farmer>> fetchAllFarmers() async {
-    final response = await dio.get(ApiEndpoints.farmers);
-    final List data = response.data as List;
-    return data.map((json) => Farmer.fromJson(json)).toList();
+  Future<FarmersListResponse> getFarmers({
+    int page = 1,
+    int limit = 100,
+    String? search,
+    String sortBy = 'createdAt',
+    String sortOrder = 'desc',
+  }) async {
+    final queryParams = {
+      'page': page,
+      'limit': limit,
+      'sortBy': sortBy,
+      'sortOrder': sortOrder,
+    };
+
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
+
+    final response = await _dioClient.get(
+      ApiEndpoints.farmers,
+      queryParameters: queryParams,
+    );
+
+    return FarmersListResponse.fromJson(response.data);
   }
 
   @override
-  Future<Farmer> addFarmer(Farmer farmer) async {
-    final response = await dio.post(ApiEndpoints.farmers, data: farmer.toJson());
-    return Farmer.fromJson(response.data);
+  Future<FarmerResponse> createFarmer(CreateFarmerRequest request) async {
+    final response = await _dioClient.post(
+      ApiEndpoints.farmers,
+      data: request.toJson(),
+    );
+
+    return FarmerResponse.fromJson(response.data);
   }
 
   @override
-  Future<Farmer> updateFarmer(Farmer farmer) async {
-    final response = await dio.put('${ApiEndpoints.farmers}/${farmer.id}', data: farmer.toJson());
-    return Farmer.fromJson(response.data);
-  }
+  Future<FarmerLookupResponse> lookupFarmer(String phoneNumber) async {
+    final response = await _dioClient.get(
+      ApiEndpoints.farmerLookup,
+      queryParameters: {'phone': phoneNumber},
+    );
 
-  @override
-  Future<void> deleteFarmer(String id) async {
-    await dio.delete('${ApiEndpoints.farmers}/$id');
+    return FarmerLookupResponse.fromJson(response.data);
   }
 }

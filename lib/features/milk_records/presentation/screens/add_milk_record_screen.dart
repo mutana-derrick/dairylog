@@ -1,62 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../../farmers/data/models/farmer_model.dart';
-import '../../data/models/milk_record_model.dart';
-import 'package:dairylog/features/farmers/providers/farmers_provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/utils/toast_utils.dart';
+import '../../../farmers/providers/farmers_provider.dart';
 import '../../providers/milk_provider.dart';
 import '../widgets/milk_input_form.dart';
 
-class AddMilkRecordScreen extends ConsumerWidget {
+class AddMilkRecordScreen extends ConsumerStatefulWidget {
   const AddMilkRecordScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final farmersState = ref.watch(farmersNotifierProvider);
-    final farmers = farmersState.farmers;
+  ConsumerState<AddMilkRecordScreen> createState() =>
+      _AddMilkRecordScreenState();
+}
 
-    void handleAddRecord(MilkRecord record) {
-      ref.read(milkProvider.notifier).addMilkRecord(record);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.check_circle_outline,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Milk record added successfully!',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.success,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-      Navigator.pop(context);
-    }
+class _AddMilkRecordScreenState extends ConsumerState<AddMilkRecordScreen> {
+  bool _isSubmitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final farmersState = ref.watch(farmersNotifierProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -65,10 +30,10 @@ class AddMilkRecordScreen extends ConsumerWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
         ),
       ),
-      body: farmers.isEmpty
+      body: farmersState.farmers.isEmpty
           ? _buildEmptyState(context)
           : SingleChildScrollView(
               child: Column(
@@ -76,7 +41,7 @@ class AddMilkRecordScreen extends ConsumerWidget {
                 children: [
                   _buildHeader(context),
                   const SizedBox(height: AppSpacing.md),
-                  _buildFormCard(context, farmers, handleAddRecord),
+                  _buildFormCard(context),
                   const SizedBox(height: AppSpacing.xl),
                 ],
               ),
@@ -147,11 +112,7 @@ class AddMilkRecordScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFormCard(
-    BuildContext context,
-    List<Farmer> farmers,
-    Function(MilkRecord) onSubmit,
-  ) {
+  Widget _buildFormCard(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       decoration: BoxDecoration(
@@ -162,8 +123,58 @@ class AddMilkRecordScreen extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: MilkInputForm(
-          onSubmit: onSubmit,
-          farmers: farmers,
+          isLoading: _isSubmitting,
+          onSubmit: ({
+            required int farmerId,
+            required String farmerName,
+            required String farmerPhone,
+            required double liters,
+            required double pricePerLiter,
+          }) async {
+            if (_isSubmitting) return;
+
+            setState(() => _isSubmitting = true);
+
+            try {
+              await ref.read(milkRecordsNotifierProvider.notifier).addMilkRecord(
+                    farmerId: farmerId,
+                    farmerName: farmerName,
+                    farmerPhone: farmerPhone,
+                    liters: liters,
+                    pricePerLiter: pricePerLiter,
+                  );
+
+              if (mounted) {
+                ToastUtils.showSuccess('Milk record added successfully!');
+                context.pop();
+              }
+            } catch (e) {
+              if (mounted) {
+                String errorMessage = 'Failed to add milk record';
+
+                final errorString = e.toString().toLowerCase();
+
+                if (errorString.contains('409') ||
+                    errorString.contains('conflict') ||
+                    errorString.contains('already delivered')) {
+                  errorMessage = 'This farmer already delivered milk today';
+                } else if (errorString.contains('404') ||
+                    errorString.contains('not found')) {
+                  errorMessage = 'Farmer not found or not in your center';
+                } else if (errorString.contains('validation')) {
+                  errorMessage = 'Please check your input values';
+                } else if (errorString.contains('network')) {
+                  errorMessage = 'Network error. Check your connection';
+                }
+
+                ToastUtils.showError(errorMessage);
+              }
+            } finally {
+              if (mounted) {
+                setState(() => _isSubmitting = false);
+              }
+            }
+          },
         ),
       ),
     );
@@ -183,36 +194,38 @@ class AddMilkRecordScreen extends ConsumerWidget {
                 shape: BoxShape.circle,
                 boxShadow: AppTheme.subtleShadow,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.person_off_outlined,
                 size: 64,
                 color: AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text(
+            const Text(
               'No Farmers Registered',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text(
+            const Text(
               'Please add farmers first before recording milk collection',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: TextStyle(
+                fontSize: 15,
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xl),
             ElevatedButton.icon(
               onPressed: () {
-                Navigator.pop(context);
+                context.go('/farmers');
               },
               icon: const Icon(Icons.person_add),
-              label: const Text('Add Farmers'),
+              label: const Text('Go to Farmers'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,

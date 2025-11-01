@@ -25,14 +25,14 @@ class _PeriodRecordCardState extends State<PeriodRecordCard> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate totals
+    // ✅ Calculate totals using correct field names
     final totalLiters = widget.records.fold<double>(
       0,
-      (sum, record) => sum + record.quantity,
+      (sum, record) => sum + record.liters,
     );
     final totalRevenue = widget.records.fold<double>(
       0,
-      (sum, record) => sum + (record.quantity * record.price),
+      (sum, record) => sum + (record.liters * record.pricePerLiter),
     );
 
     return Container(
@@ -122,12 +122,15 @@ class _PeriodRecordCardState extends State<PeriodRecordCard> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'RWF ${NumberFormat('#,###').format(totalRevenue)}',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.success,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'RWF ${NumberFormat('#,###').format(totalRevenue)}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.success,
+                            ),
                           ),
                         ),
                       ],
@@ -273,7 +276,8 @@ class _PeriodRecordCardState extends State<PeriodRecordCard> {
   }
 
   Widget _buildRecordRow(MilkRecord record) {
-    final totalAmount = record.quantity * record.price;
+    // ✅ Use correct field names
+    final totalAmount = record.liters * record.pricePerLiter;
     final timeFormat = DateFormat('h:mm a');
 
     return Container(
@@ -293,14 +297,14 @@ class _PeriodRecordCardState extends State<PeriodRecordCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Text(
-                //   record.farmerName,
-                //   style: const TextStyle(
-                //     fontSize: 13,
-                //     fontWeight: FontWeight.w600,
-                //     color: AppColors.textPrimary,
-                //   ),
-                // ),
+                Text(
+                  record.farmerName, // ✅ Uncommented
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Row(
                   children: [
@@ -311,7 +315,7 @@ class _PeriodRecordCardState extends State<PeriodRecordCard> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      timeFormat.format(record.date),
+                      timeFormat.format(record.recordedAt), // ✅ Changed from date
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.textTertiary,
@@ -325,7 +329,7 @@ class _PeriodRecordCardState extends State<PeriodRecordCard> {
 
           // Quantity
           Text(
-            '${record.quantity}L',
+            '${record.liters.toStringAsFixed(1)}L', // ✅ Changed from quantity
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,

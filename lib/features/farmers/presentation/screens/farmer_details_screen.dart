@@ -5,157 +5,300 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../data/models/farmer_model.dart';
-import '../../../milk_records/data/models/milk_record_model.dart';
+import '../../providers/farmers_provider.dart';
 import '../../../milk_records/providers/milk_provider.dart';
 import '../widgets/delivery_history_card.dart';
 
-class FarmerDetailsScreen extends ConsumerWidget {
-  final Farmer farmer;
+class FarmerDetailsScreen extends ConsumerStatefulWidget {
+  final String phoneNumber;
 
   const FarmerDetailsScreen({
     super.key,
-    required this.farmer,
+    required this.phoneNumber,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final milkState = ref.watch(milkProvider);
+  ConsumerState<FarmerDetailsScreen> createState() =>
+      _FarmerDetailsScreenState();
+}
 
-    // Filter records for this specific farmer
-    final farmerRecords = milkState.records
-        .where((record) => record.farmerPhoneNumber == farmer.phoneNumber)
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date)); // Most recent first
+class _FarmerDetailsScreenState extends ConsumerState<FarmerDetailsScreen> {
+  bool _isLoadingFarmer = true;
+  bool _isLoadingHistory = true;
+  Farmer? _farmer;
+  String? _error;
 
-    // Calculate statistics
-    final totalDeliveries = farmerRecords.length;
-    final totalLiters = farmerRecords.fold<double>(
-      0,
-      (sum, record) => sum + record.quantity,
-    );
-    final totalRevenue = farmerRecords.fold<double>(
-      0,
-      (sum, record) => sum + (record.quantity * record.price),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  // ✅ FIXED: Complete rewrite with proper mounted checks
+  Future<void> _loadData() async {
+    print('=====================================');
+  print('🔍 _loadData called');
+  print('🔍 mounted: $mounted');
+  print('🔍 Stack trace:');
+  print(StackTrace.current);
+  print('=====================================');
+    // Early return if widget is already unmounted
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingFarmer = true;
+      _isLoadingHistory = true;
+      _error = null;
+    });
+
+    try {
+      print('🔍 Loading farmer: ${widget.phoneNumber}');
+
+      // Load farmer details
+      final farmer = await ref
+          .read(farmersNotifierProvider.notifier)
+          .lookupFarmer(widget.phoneNumber);
+
+      // Check if still mounted after async operation
+      if (!mounted) return;
+
+      if (farmer == null) {
+        throw Exception('Farmer not found');
+      }
+
+      print('✅ Farmer loaded: ${farmer.name}');
+
+      setState(() {
+        _farmer = farmer;
+        _isLoadingFarmer = false;
+      });
+
+      // Load milk history
+      print('🔍 Loading history for: ${widget.phoneNumber}');
+
+      await ref
+          .read(milkRecordsNotifierProvider.notifier)
+          .loadFarmerHistory(widget.phoneNumber);
+
+      // Check if still mounted after async operation
+      if (!mounted) return;
+
+      final historyState = ref.read(milkRecordsNotifierProvider);
+      print('✅ History loaded: ${historyState.farmerHistory.length} records');
+      print('✅ Total liters: ${historyState.totalLitersDeliveredByFarmer}');
+      print('✅ Total revenue: ${historyState.totalRevenueByFarmer}');
+
+      setState(() => _isLoadingHistory = false);
+    } catch (e) {
+      print('❌ Error loading data: $e');
+
+      // Check if still mounted before updating UI
+      if (!mounted) return;
+
+      setState(() {
+        _error = e.toString();
+        _isLoadingFarmer = false;
+        _isLoadingHistory = false;
+      });
+
+      // ✅ FIX: Use WidgetsBinding to show toast after frame is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ToastUtils.showError('Failed to load farmer details');
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final historyState = ref.watch(milkRecordsNotifierProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(context),
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildFarmerInfoCard(context),
-                const SizedBox(height: AppSpacing.md),
-                _buildStatisticsCards(
-                  context,
-                  totalDeliveries,
-                  totalLiters,
-                  totalRevenue,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                _buildSectionHeader(
-                    context, 'Delivery History', farmerRecords.length),
-                const SizedBox(height: AppSpacing.sm),
-              ],
-            ),
+      appBar: AppBar(
+        title: const Text('Farmer Details'),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoadingFarmer || _isLoadingHistory ? null : _loadData,
           ),
-          _buildDeliveryHistory(context, farmerRecords),
         ],
+      ),
+      body: _isLoadingFarmer
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _buildErrorState()
+              : _farmer == null
+                  ? _buildNotFoundState()
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFarmerHeader(),
+                            const SizedBox(height: AppSpacing.md),
+                            _buildFarmerInfoCard(),
+                            const SizedBox(height: AppSpacing.lg),
+                            _buildDeliveryHistorySection(historyState),
+                            const SizedBox(height: AppSpacing.xl),
+                          ],
+                        ),
+                      ),
+                    ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'Failed to load farmer',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              _error ?? 'Unknown error',
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ElevatedButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context) {
-    return SliverAppBar(
-      expandedHeight: 200,
-      pinned: true,
-      elevation: 0,
-      backgroundColor: AppColors.primary,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-        onPressed: () => Navigator.pop(context),
+  Widget _buildNotFoundState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.person_off,
+                size: 64, color: AppColors.textSecondary),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'Farmer Not Found',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'No farmer found with phone ${widget.phoneNumber}',
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
-      actions: const [
-        // IconButton(
-        //   icon: const Icon(Icons.edit_outlined),
-        //   onPressed: () {
-        //     // TODO: Navigate to edit farmer screen
-        //     ToastUtils.showInfo('Edit farmer');
-        //   },
-        // ),
-        // IconButton(
-        //   icon: const Icon(Icons.more_vert),
-        //   onPressed: () {
-        //     // TODO: Show more options
-        //   },
-        // ),
-      ],
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AppColors.primary,
-                AppColors.primaryLight,
-              ],
-            ),
+    );
+  }
+
+  Widget _buildFarmerHeader() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary,
+            AppColors.primary.withOpacity(0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          child: SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.person,
-                    size: 40,
-                    color: AppColors.primary,
-                  ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  farmer.name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                child: const Icon(
+                  Icons.person,
+                  size: 40,
+                  color: AppColors.primary,
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  farmer.phoneNumber,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                _farmer!.name,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                const SizedBox(height: AppSpacing.lg),
-              ],
-            ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                _farmer!.phoneNumber,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFarmerInfoCard(BuildContext context) {
+  Widget _buildFarmerInfoCard() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -167,275 +310,227 @@ class FarmerDetailsScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionTitle('Location Details'),
+          _buildInfoRow(
+            icon: Icons.location_on,
+            label: 'Sector',
+            value: _farmer!.sector,
+          ),
           const SizedBox(height: AppSpacing.md),
-          _buildInfoRow(Icons.location_city_outlined, 'Sector', farmer.sector),
-          const SizedBox(height: AppSpacing.sm),
-          _buildInfoRow(Icons.location_on_outlined, 'Cell', farmer.cell),
-          const SizedBox(height: AppSpacing.sm),
-          _buildInfoRow(Icons.home_outlined, 'Village', farmer.village),
-          const SizedBox(height: AppSpacing.lg),
-          // Row(
-          //   children: [
-          //     Expanded(
-          //       child: OutlinedButton.icon(
-          //         onPressed: () {
-          //           // TODO: Call farmer
-          //           ToastUtils.showInfo('Calling ${farmer.phoneNumber}');
-          //         },
-          //         icon: const Icon(Icons.phone, size: 18),
-          //         label: const Text('Call'),
-          //       ),
-          //     ),
-          //     const SizedBox(width: AppSpacing.sm),
-          //     Expanded(
-          //       child: ElevatedButton.icon(
-          //         onPressed: () {
-          //           // TODO: Send SMS
-          //           ToastUtils.showInfo('Sending SMS to ${farmer.phoneNumber}');
-          //         },
-          //         icon: const Icon(Icons.message, size: 18),
-          //         label: const Text('Message'),
-          //       ),
-          //     ),
-          //   ],
-          // ),
+          _buildInfoRow(
+            icon: Icons.location_city,
+            label: 'Cell',
+            value: _farmer!.cell,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildInfoRow(
+            icon: Icons.home,
+            label: 'Village',
+            value: _farmer!.village,
+          ),
+          if (_farmer!.createdAt != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            _buildInfoRow(
+              icon: Icons.calendar_today,
+              label: 'Registered',
+              value: DateFormat('MMM dd, yyyy').format(_farmer!.createdAt!),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildStatisticsCards(
-    BuildContext context,
-    int totalDeliveries,
-    double totalLiters,
-    double totalRevenue,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
-              'Deliveries',
-              totalDeliveries.toString(),
-              Icons.local_shipping_outlined,
-              Colors.blue,
-            ),
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: _buildStatCard(
-              'Total Liters',
-              totalLiters.toStringAsFixed(1),
-              Icons.water_drop_outlined,
-              Colors.cyan,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: _buildStatCard(
-              'Revenue',
-              '${NumberFormat.compact().format(totalRevenue)} RWF',
-              Icons.payments_outlined,
-              AppColors.success,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-      String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(
-          color: color.withOpacity(0.3),
+          child: Icon(icon, size: 20, color: AppColors.primary),
         ),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: color,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(BuildContext context, String title, int count) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 24,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              count.toString(),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeliveryHistory(BuildContext context, List<MilkRecord> records) {
-    if (records.isEmpty) {
-      return SliverFillRemaining(
-        child: Center(
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.history,
-                size: 64,
-                color: AppColors.textSecondary.withOpacity(0.5),
-              ),
-              const SizedBox(height: AppSpacing.md),
               Text(
-                'No Delivery History',
-                style: TextStyle(
-                  fontSize: 16,
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
                   color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xs),
+              const SizedBox(height: 2),
               Text(
-                'This farmer hasn\'t made any deliveries yet',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textTertiary,
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),
         ),
-      );
-    }
-
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final record = records[index];
-            return DeliveryHistoryCard(
-              record: record,
-              onTap: () {
-                // TODO: Show record details in bottom sheet or navigate
-                ToastUtils.showInfo('View record details');
-              },
-            );
-          },
-          childCount: records.length,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Row(
-      children: [
-        Container(
-          width: 4,
-          height: 20,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Row(
+  Widget _buildDeliveryHistorySection(MilkRecordsState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: AppColors.textSecondary),
-        const SizedBox(width: AppSpacing.sm),
-        Text(
-          '$label:',
-          style: const TextStyle(
-            fontSize: 14,
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Delivery History',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              if (!_isLoadingHistory && state.totalLitersDeliveredByFarmer > 0)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.water_drop,
+                            size: 14,
+                            color: AppColors.success,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${state.totalLitersDeliveredByFarmer.toStringAsFixed(1)} L',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.payments,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'RWF ${NumberFormat('#,###').format(state.totalRevenueByFarmer)}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
         ),
-        const SizedBox(width: AppSpacing.xs),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textPrimary,
+        const SizedBox(height: AppSpacing.md),
+        if (_isLoadingHistory)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.lg),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (state.farmerHistory.isEmpty)
+          _buildEmptyHistory()
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            itemCount: state.farmerHistory.length,
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: AppSpacing.sm),
+            itemBuilder: (context, index) {
+              final record = state.farmerHistory[index];
+              return DeliveryHistoryCard(record: record);
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyHistory() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.history,
+            size: 48,
+            color: AppColors.textSecondary.withOpacity(0.5),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Text(
+            'No Delivery History',
+            style: TextStyle(
+              fontSize: 16,
               fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: AppSpacing.xs),
+          const Text(
+            'This farmer hasn\'t made any deliveries yet',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }

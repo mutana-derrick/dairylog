@@ -1,61 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_input_field.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../farmers/data/models/farmer_model.dart';
-import '../../data/models/milk_record_model.dart';
+import '../../../farmers/providers/farmers_provider.dart';
 
-class MilkInputForm extends StatefulWidget {
-  final Function(MilkRecord) onSubmit;
-  final MilkRecord? initialRecord;
-  final List<Farmer> farmers;
+
+
+class MilkInputForm extends ConsumerStatefulWidget {
+  final Function({
+    required int farmerId,
+    required String farmerName,
+    required String farmerPhone,
+    required double liters,
+    required double pricePerLiter,
+  }) onSubmit;
+  final bool isLoading;
 
   const MilkInputForm({
     super.key,
     required this.onSubmit,
-    this.initialRecord,
-    required this.farmers,
+    this.isLoading = false,
   });
 
   @override
-  State<MilkInputForm> createState() => _MilkInputFormState();
+  ConsumerState<MilkInputForm> createState() => _MilkInputFormState();
 }
 
-class _MilkInputFormState extends State<MilkInputForm> {
+class _MilkInputFormState extends ConsumerState<MilkInputForm> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
 
   Farmer? _selectedFarmer;
-  bool _isLoading = false;
   List<Farmer> _filteredFarmers = [];
   bool _showSuggestions = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _filteredFarmers = widget.farmers;
-    
-    if (widget.initialRecord != null) {
-      _phoneController.text = widget.initialRecord!.farmerPhoneNumber;
-      _quantityController.text = widget.initialRecord!.quantity.toString();
-      _priceController.text = widget.initialRecord!.price.toString();
-      _selectedFarmer = widget.farmers.firstWhere(
-        (f) => f.phoneNumber == widget.initialRecord!.farmerPhoneNumber,
-        orElse: () => Farmer(
-          id: '',
-          phoneNumber: '',
-          name: '',
-          sector: '',
-          cell: '',
-          village: '',
-        ),
-      );
-    }
-  }
 
   @override
   void dispose() {
@@ -65,10 +48,10 @@ class _MilkInputFormState extends State<MilkInputForm> {
     super.dispose();
   }
 
-  void _filterFarmers(String query) {
+  void _filterFarmers(String query, List<Farmer> allFarmers) {
     if (query.isEmpty) {
       setState(() {
-        _filteredFarmers = widget.farmers;
+        _filteredFarmers = [];
         _showSuggestions = false;
         _selectedFarmer = null;
       });
@@ -76,29 +59,21 @@ class _MilkInputFormState extends State<MilkInputForm> {
     }
 
     setState(() {
-      _filteredFarmers = widget.farmers
+      _filteredFarmers = allFarmers
           .where((farmer) =>
               farmer.phoneNumber.contains(query) ||
               farmer.name.toLowerCase().contains(query.toLowerCase()))
           .toList();
       _showSuggestions = _filteredFarmers.isNotEmpty;
-      
+
       // Auto-select if exact match
-      final exactMatch = widget.farmers.firstWhere(
-        (f) => f.phoneNumber == query,
-        orElse: () => Farmer(
-          id: '',
-          phoneNumber: '',
-          name: '',
-          sector: '',
-          cell: '',
-          village: '',
-        ),
-      );
-      
-      if (exactMatch.phoneNumber.isNotEmpty) {
-        _selectedFarmer = exactMatch;
+      try {
+        _selectedFarmer = allFarmers.firstWhere(
+          (f) => f.phoneNumber == query,
+        );
         _showSuggestions = false;
+      } catch (e) {
+        _selectedFarmer = null;
       }
     });
   }
@@ -113,39 +88,35 @@ class _MilkInputFormState extends State<MilkInputForm> {
 
   Future<void> _handleSubmit() async {
     if (_formKey.currentState!.validate()) {
-      if (_selectedFarmer == null || _selectedFarmer!.phoneNumber.isEmpty) {
-        ToastUtils.showError('Farmer not found. Please check the phone number.');
+      if (_selectedFarmer == null) {
+        ToastUtils.showError(
+            'Farmer not found. Please check the phone number.');
         return;
       }
 
-      setState(() => _isLoading = true);
-
-      // Simulate API call delay
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final record = MilkRecord(
-        farmerPhoneNumber: _phoneController.text,
-        quantity: double.parse(_quantityController.text),
-        price: double.parse(_priceController.text),
-        date: DateTime.now(),
+      await widget.onSubmit(
+        farmerId: _selectedFarmer!.id,
+        farmerName: _selectedFarmer!.name,
+        farmerPhone: _selectedFarmer!.phoneNumber,
+        liters: double.parse(_quantityController.text),
+        pricePerLiter: double.parse(_priceController.text),
       );
-
-      widget.onSubmit(record);
-      
-      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Get farmers from provider
+    final farmersState = ref.watch(farmersNotifierProvider);
+    final farmers = farmersState.farmers;
+
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPhoneNumberField(),
-          if (_selectedFarmer != null && _selectedFarmer!.phoneNumber.isNotEmpty)
-            _buildFarmerPreview(),
+          _buildPhoneNumberField(farmers),
+          if (_selectedFarmer != null) _buildFarmerPreview(),
           if (_showSuggestions && _filteredFarmers.isNotEmpty)
             _buildSuggestionsList(),
           const SizedBox(height: AppSpacing.lg),
@@ -155,7 +126,8 @@ class _MilkInputFormState extends State<MilkInputForm> {
           const SizedBox(height: AppSpacing.md),
           _buildPriceField(),
           const SizedBox(height: AppSpacing.md),
-          if (_quantityController.text.isNotEmpty && _priceController.text.isNotEmpty)
+          if (_quantityController.text.isNotEmpty &&
+              _priceController.text.isNotEmpty)
             _buildTotalPreview(),
           const SizedBox(height: AppSpacing.xl),
           _buildSubmitButton(),
@@ -189,7 +161,7 @@ class _MilkInputFormState extends State<MilkInputForm> {
     );
   }
 
-  Widget _buildPhoneNumberField() {
+  Widget _buildPhoneNumberField(List<Farmer> farmers) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -201,12 +173,13 @@ class _MilkInputFormState extends State<MilkInputForm> {
           hintText: 'Enter or search farmer phone',
           keyboardType: TextInputType.phone,
           prefixIcon: const Icon(Icons.phone_outlined),
-          onChanged: _filterFarmers,
+          enabled: !widget.isLoading,
+          onChanged: (value) => _filterFarmers(value, farmers),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter phone number';
             }
-            if (_selectedFarmer == null || _selectedFarmer!.phoneNumber.isEmpty) {
+            if (_selectedFarmer == null) {
               return 'Farmer not found';
             }
             return null;
@@ -264,7 +237,7 @@ class _MilkInputFormState extends State<MilkInputForm> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${_selectedFarmer!.sector} • ${_selectedFarmer!.cell} • ${_selectedFarmer!.village}',
+                  '${_selectedFarmer!.sector} • ${_selectedFarmer!.cell}',
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
@@ -350,6 +323,7 @@ class _MilkInputFormState extends State<MilkInputForm> {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       prefixIcon: const Icon(Icons.water_drop_outlined),
       suffixText: 'Liters',
+      enabled: !widget.isLoading,
       onChanged: (value) => setState(() {}),
       validator: (value) {
         if (value == null || value.isEmpty) return 'Enter quantity';
@@ -368,6 +342,7 @@ class _MilkInputFormState extends State<MilkInputForm> {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       prefixIcon: const Icon(Icons.attach_money_outlined),
       suffixText: 'RWF',
+      enabled: !widget.isLoading,
       onChanged: (value) => setState(() {}),
       validator: (value) {
         if (value == null || value.isEmpty) return 'Enter price';
@@ -445,12 +420,11 @@ class _MilkInputFormState extends State<MilkInputForm> {
     return SizedBox(
       width: double.infinity,
       child: CustomButton(
-        text: widget.initialRecord == null ? 'Add Record' : 'Update Record',
-        onPressed: _isLoading ? null : _handleSubmit,
-        isLoading: _isLoading,
-        icon: widget.initialRecord == null ? Icons.add : Icons.update,
+        text: 'Add Record',
+        onPressed: widget.isLoading ? null : _handleSubmit,
+        isLoading: widget.isLoading,
+        icon: Icons.add,
       ),
     );
   }
-
 }

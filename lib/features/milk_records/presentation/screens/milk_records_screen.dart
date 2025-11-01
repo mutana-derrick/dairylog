@@ -57,8 +57,8 @@ class _MilkRecordsScreenState extends ConsumerState<MilkRecordsScreen> {
     if (_searchQuery.isEmpty) return records;
 
     return records.where((record) {
-      final farmerPhone = record.farmerPhoneNumber.toLowerCase();
-      final quantity = record.quantity.toString();
+      final farmerPhone = record.farmerPhone.toLowerCase();
+      final quantity = record.liters.toString();
       final query = _searchQuery.toLowerCase();
 
       return farmerPhone.contains(query) || quantity.contains(query);
@@ -67,7 +67,7 @@ class _MilkRecordsScreenState extends ConsumerState<MilkRecordsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final milkState = ref.watch(milkProvider);
+    final milkState = ref.watch(milkRecordsNotifierProvider);
     final farmersNotifier = ref.read(farmersNotifierProvider.notifier);
 
     final filteredRecords = _filterRecords(milkState.records);
@@ -173,9 +173,9 @@ class _MilkRecordsScreenState extends ConsumerState<MilkRecordsScreen> {
                             final record = filteredRecords[index];
                             return MilkRecordCard(
                               record: record,
-                              onTap: () {
-                                final farmer = farmersNotifier.getFarmerByPhone(
-                                  record.farmerPhoneNumber,
+                              onTap: () async {
+                                final farmer = await farmersNotifier.lookupFarmer(
+                                  record.farmerPhone,
                                 );
 
                                 if (farmer != null) {

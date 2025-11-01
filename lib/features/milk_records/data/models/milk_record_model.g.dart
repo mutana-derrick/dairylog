@@ -17,25 +17,34 @@ class MilkRecordAdapter extends TypeAdapter<MilkRecord> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return MilkRecord(
-      farmerPhoneNumber: fields[0] as String,
-      quantity: fields[1] as double,
-      price: fields[2] as double,
-      date: fields[3] as DateTime,
+      id: fields[0] as int,
+      farmerId: fields[1] as int,
+      farmerName: fields[2] as String,
+      farmerPhone: fields[3] as String,
+      liters: fields[4] as double,
+      pricePerLiter: fields[5] as double,
+      recordedAt: fields[6] as DateTime,
     );
   }
 
   @override
   void write(BinaryWriter writer, MilkRecord obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(7)
       ..writeByte(0)
-      ..write(obj.farmerPhoneNumber)
+      ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.quantity)
+      ..write(obj.farmerId)
       ..writeByte(2)
-      ..write(obj.price)
+      ..write(obj.farmerName)
       ..writeByte(3)
-      ..write(obj.date);
+      ..write(obj.farmerPhone)
+      ..writeByte(4)
+      ..write(obj.liters)
+      ..writeByte(5)
+      ..write(obj.pricePerLiter)
+      ..writeByte(6)
+      ..write(obj.recordedAt);
   }
 
   @override

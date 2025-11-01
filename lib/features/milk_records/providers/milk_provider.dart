@@ -1,95 +1,81 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../data/datasources/milk_local_data_source.dart';
+import '../data/datasources/milk_remote_data_source.dart';
 import '../data/models/milk_record_model.dart';
+import '../data/models/farmer_history_response.dart';
 import '../data/repositories/milk_repository.dart';
-import 'milk_state.dart';
 
-/// Mock/Fake Repository for testing with dummy data
-class MockMilkRepository implements MilkRepository {
-  // Dummy data storage
-  final List<MilkRecord> _dummyRecords = [
-    MilkRecord(
-      farmerPhoneNumber: '+250788123456',
-      quantity: 25.5,
-      price: 500.0,
-      date: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    MilkRecord(
-      farmerPhoneNumber: '+250788234567',
-      quantity: 18.0,
-      price: 500.0,
-      date: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-    MilkRecord(
-      farmerPhoneNumber: '+250788345678',
-      quantity: 32.0,
-      price: 500.0,
-      date: DateTime.now(),
-    ),
-    MilkRecord(
-      farmerPhoneNumber: '+250788123456',
-      quantity: 28.5,
-      price: 500.0,
-      date: DateTime.now(),
-    ),
-  ];
+// State class
+class MilkRecordsState {
+  final List<MilkRecord> records;
+  final List<MilkHistoryRecord> farmerHistory;
+  final double totalLiters;
+  final double totalLitersDeliveredByFarmer;
+  final double totalRevenueByFarmer; // ✅ ADD THIS
+  final bool isLoading;
+  final String? error;
 
-  @override
-  Future<void> addMilkRecord(MilkRecord record) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 300));
-    _dummyRecords.add(record);
-  }
+  MilkRecordsState({
+    this.records = const [],
+    this.farmerHistory = const [],
+    this.totalLiters = 0.0,
+    this.totalLitersDeliveredByFarmer = 0.0,
+    this.totalRevenueByFarmer = 0.0, // ✅ ADD THIS
+    this.isLoading = false,
+    this.error,
+  });
 
-  @override
-  Future<List<MilkRecord>> getAllMilkRecords() async {
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    // Return records sorted by date (newest first)
-    final sortedRecords = List<MilkRecord>.from(_dummyRecords);
-    sortedRecords.sort((a, b) => b.date.compareTo(a.date));
-    return sortedRecords;
-  }
-
-  @override
-  Future<List<MilkRecord>> getMilkRecordsByDate(DateTime date) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return _dummyRecords.where((record) {
-      return record.date.year == date.year &&
-          record.date.month == date.month &&
-          record.date.day == date.day;
-    }).toList();
+  MilkRecordsState copyWith({
+    List<MilkRecord>? records,
+    List<MilkHistoryRecord>? farmerHistory,
+    double? totalLiters,
+    double? totalLitersDeliveredByFarmer,
+    double? totalRevenueByFarmer, // ✅ ADD THIS
+    bool? isLoading,
+    String? error,
+  }) {
+    return MilkRecordsState(
+      records: records ?? this.records,
+      farmerHistory: farmerHistory ?? this.farmerHistory,
+      totalLiters: totalLiters ?? this.totalLiters,
+      totalLitersDeliveredByFarmer:
+          totalLitersDeliveredByFarmer ?? this.totalLitersDeliveredByFarmer,
+      totalRevenueByFarmer:
+          totalRevenueByFarmer ?? this.totalRevenueByFarmer, // ✅ ADD THIS
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+    );
   }
 }
 
-/// Provider for MilkRepository - Using Mock for now
-final milkRepositoryProvider = Provider<MilkRepository>((ref) {
-  // TODO: Replace with actual repository when ready
-  // return MilkRepositoryImpl(
-  //   localDataSource: ref.watch(milkLocalDataSourceProvider),
-  //   remoteDataSource: ref.watch(milkRemoteDataSourceProvider),
-  // );
-  return MockMilkRepository();
-});
+// Notifier
+class MilkRecordsNotifier extends StateNotifier<MilkRecordsState> {
+  final MilkRecordsRepository _repository;
 
-/// StateNotifier provider for milk records
-final milkProvider = StateNotifierProvider<MilkNotifier, MilkState>((ref) {
-  final repository = ref.watch(milkRepositoryProvider);
-  return MilkNotifier(repository);
-});
-
-class MilkNotifier extends StateNotifier<MilkState> {
-  final MilkRepository _repository;
-
-  MilkNotifier(this._repository) : super(const MilkState()) {
+  MilkRecordsNotifier(this._repository) : super(MilkRecordsState()) {
     loadMilkRecords();
   }
 
-  /// Load all milk records (initial fetch)
-  Future<void> loadMilkRecords() async {
+  /// Load milk records (defaults to today)
+  Future<void> loadMilkRecords({
+    int? farmerId,
+    String? startDate,
+    String? endDate,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
+
     try {
-      final records = await _repository.getAllMilkRecords();
-      state = state.copyWith(records: records, isLoading: false);
+      final records = await _repository.loadMilkRecords(
+        farmerId: farmerId,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      state = state.copyWith(
+        records: records,
+        isLoading: false,
+      );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -98,37 +84,95 @@ class MilkNotifier extends StateNotifier<MilkState> {
     }
   }
 
-  /// Load records for a specific date
-  Future<void> loadMilkRecordsByDate(DateTime date) async {
-    state = state.copyWith(isLoading: true, error: null);
+  /// Add new milk record
+  Future<void> addMilkRecord({
+    required int farmerId,
+    required String farmerName,
+    required String farmerPhone,
+    required double liters,
+    required double pricePerLiter,
+  }) async {
     try {
-      final records = await _repository.getMilkRecordsByDate(date);
-      state = state.copyWith(records: records, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
+      final newRecord = await _repository.createMilkRecord(
+        farmerId: farmerId,
+        farmerName: farmerName,
+        farmerPhone: farmerPhone,
+        liters: liters,
+        pricePerLiter: pricePerLiter,
       );
+
+      state = state.copyWith(
+        records: [newRecord, ...state.records],
+      );
+    } catch (e) {
+      rethrow;
     }
   }
 
-  /// Add a new milk record
-  Future<void> addMilkRecord(MilkRecord record) async {
+  /// Load farmer delivery history
+  Future<void> loadFarmerHistory(String phoneNumber) async {
     state = state.copyWith(isLoading: true, error: null);
+
     try {
-      await _repository.addMilkRecord(record);
-      // Reload to get fresh data
-      await loadMilkRecords();
+      print('🔍 Loading farmer history for: $phoneNumber');
+
+      final response = await _repository.getFarmerHistory(phoneNumber);
+
+      // ✅ ADD THIS: Calculate total revenue
+      final totalRevenue = response.totalRevenue;
+
+      print('✅ Farmer history loaded: ${response.records.length} records');
+      print('✅ Total liters: ${response.totalLitersDeliveredByFarmer}');
+      print(
+          '✅ Total revenue: RWF ${totalRevenue.toStringAsFixed(0)}'); // ✅ ADD THIS
+
+      state = state.copyWith(
+        farmerHistory: response.records,
+        totalLitersDeliveredByFarmer: response.totalLitersDeliveredByFarmer,
+        totalRevenueByFarmer: totalRevenue, // ✅ ADD THIS
+        isLoading: false,
+      );
     } catch (e) {
+      print('❌ Error loading farmer history: $e');
+
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
+        farmerHistory: [],
+        totalLitersDeliveredByFarmer: 0,
+        totalRevenueByFarmer: 0, // ✅ ADD THIS
       );
+      rethrow;
     }
   }
 
-  /// Clear any error messages
-  void clearError() {
-    state = state.copyWith(error: null);
+  /// Delete milk record
+  Future<void> deleteMilkRecord(int id) async {
+    try {
+      await _repository.deleteMilkRecord(id);
+
+      state = state.copyWith(
+        records: state.records.where((r) => r.id != id).toList(),
+      );
+    } catch (e) {
+      rethrow;
+    }
   }
 }
+
+// Provider
+final milkRecordsNotifierProvider =
+    StateNotifierProvider<MilkRecordsNotifier, MilkRecordsState>((ref) {
+  final dioClient = ref.watch(dioClientProvider);
+
+  final remoteDataSource =
+      MilkRecordsRemoteDataSourceImpl(dioClient: dioClient);
+  final localDataSource = MilkRecordsLocalDataSourceImpl();
+
+  final repository = MilkRecordsRepository(
+    localDataSource: localDataSource,
+    remoteDataSource: remoteDataSource,
+  );
+
+  return MilkRecordsNotifier(repository);
+});

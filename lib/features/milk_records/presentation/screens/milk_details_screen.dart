@@ -17,7 +17,7 @@ class MilkDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalAmount = record.quantity * record.price;
+    final totalAmount = record.liters * record.pricePerLiter;
     final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
     final timeFormat = DateFormat('h:mm a');
 
@@ -68,7 +68,7 @@ class MilkDetailsScreen extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
@@ -293,7 +293,7 @@ class MilkDetailsScreen extends StatelessWidget {
             const SizedBox(height: AppSpacing.lg),
             _buildMetricCard(
               'Quantity',
-              '${record.quantity}',
+              '${record.liters}',
               'Liters',
               Icons.local_drink_outlined,
               AppColors.primary,
@@ -301,7 +301,7 @@ class MilkDetailsScreen extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             _buildMetricCard(
               'Price per Liter',
-              'RWF ${NumberFormat('#,##0').format(record.price)}',
+              'RWF ${NumberFormat('#,##0').format(record.pricePerLiter)}',
               'Per liter',
               Icons.payments_outlined,
               AppColors.secondary,
@@ -392,7 +392,7 @@ class MilkDetailsScreen extends StatelessWidget {
                     color: AppColors.cream,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.calendar_today_outlined,
                     color: AppColors.primary,
                     size: 24,
@@ -412,13 +412,13 @@ class MilkDetailsScreen extends StatelessWidget {
             _buildInfoRow(
               Icons.event_outlined,
               'Date',
-              dateFormat.format(record.date),
+              dateFormat.format(record.recordedAt),
             ),
             const SizedBox(height: AppSpacing.md),
             _buildInfoRow(
               Icons.access_time_outlined,
               'Time',
-              timeFormat.format(record.date),
+              timeFormat.format(record.recordedAt),
             ),
           ],
         ),
@@ -501,7 +501,7 @@ class MilkDetailsScreen extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
@@ -535,13 +535,13 @@ class MilkDetailsScreen extends StatelessWidget {
   Widget _buildBottomActions(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.cardBackground,
         boxShadow: [
           BoxShadow(
             color: AppColors.shadow,
             blurRadius: 8,
-            offset: const Offset(0, -2),
+            offset: Offset(0, -2),
           ),
         ],
       ),

@@ -31,6 +31,11 @@ class StorageService {
     await _storage.deleteAll();
   }
 
+  /// Delete user ID
+  Future<void> deleteUserId() async {
+    await delete(_keyUserId);
+  }
+
   /// Check if a key exists
   Future<bool> containsKey(String key) async {
     return await _storage.containsKey(key: key);
@@ -58,13 +63,14 @@ class StorageService {
   }
 
   /// Save user ID
-  Future<void> saveUserId(String userId) async {
-    await write(key: _keyUserId, value: userId);
+  Future<void> saveUserId(int userId) async {
+    await write(key: _keyUserId, value: userId.toString());
   }
 
   /// Get user ID
-  Future<String?> getUserId() async {
-    return await read(_keyUserId);
+  Future<int?> getUserId() async {
+    final id = await read(_keyUserId);
+    return id != null ? int.tryParse(id) : null;
   }
 
   /// Clear all tokens (logout)

@@ -29,7 +29,9 @@ class FarmerCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => FarmerDetailsScreen(farmer: farmer),
+                builder: (context) => FarmerDetailsScreen(
+                  phoneNumber: farmer.phoneNumber,
+                ),
               ),
             );
           },

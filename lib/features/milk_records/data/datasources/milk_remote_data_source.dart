@@ -1,53 +1,118 @@
-import 'package:dio/dio.dart';
-import '../models/milk_record_model.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../../../core/constants/api_endpoints.dart';
+import '../models/create_milk_record_request.dart';
+import '../models/milk_record_response.dart';
+import '../models/milk_records_list_response.dart';
+import '../models/farmer_history_response.dart' as history; 
 
-abstract class MilkRemoteDataSource {
-  Future<void> addMilkRecord(MilkRecord record);
-  Future<List<MilkRecord>> fetchMilkRecords({DateTime? date});
+abstract class MilkRecordsRemoteDataSource {
+  Future<MilkRecordsListResponse> getMilkRecords({
+    int? farmerId,
+    String? startDate,
+    String? endDate,
+    int page = 1,
+    int limit = 15,
+    String sortBy = 'recordedAt',
+    String sortOrder = 'desc',
+  });
+
+  Future<MilkRecordResponse> createMilkRecord(CreateMilkRecordRequest request);
+
+  Future<history.FarmerHistoryResponse> getFarmerHistory(
+      String phoneNumber); 
 }
 
-class MilkRemoteDataSourceImpl implements MilkRemoteDataSource {
-  final Dio dio;
+class MilkRecordsRemoteDataSourceImpl implements MilkRecordsRemoteDataSource {
+  final DioClient _dioClient;
 
-  MilkRemoteDataSourceImpl(this.dio);
+  MilkRecordsRemoteDataSourceImpl({required DioClient dioClient})
+      : _dioClient = dioClient;
 
   @override
-  Future<void> addMilkRecord(MilkRecord record) async {
-    try {
-      await dio.post(
-        ApiEndpoints.addMilkRecord,
-        data: {
-          'farmer_phone_number': record.farmerPhoneNumber,
-          'quantity': record.quantity,
-          'price': record.price,
-          'date': record.date.toIso8601String(),
-        },
-      );
-    } on DioException catch (e) {
-      throw Exception('Failed to add milk record: ${e.message}');
+  Future<MilkRecordsListResponse> getMilkRecords({
+    int? farmerId,
+    String? startDate,
+    String? endDate,
+    int page = 1,
+    int limit = 15,
+    String sortBy = 'recordedAt',
+    String sortOrder = 'desc',
+  }) async {
+    final queryParams = <String, dynamic>{
+      'page': page,
+      'limit': limit,
+      'sortBy': sortBy,
+      'sortOrder': sortOrder,
+    };
+
+    if (farmerId != null) {
+      queryParams['farmerId'] = farmerId;
     }
+    if (startDate != null) {
+      queryParams['startDate'] = startDate;
+    }
+    if (endDate != null) {
+      queryParams['endDate'] = endDate;
+    }
+
+    final response = await _dioClient.get(
+      ApiEndpoints.milkRecords,
+      queryParameters: queryParams,
+    );
+
+    return MilkRecordsListResponse.fromJson(response.data);
   }
 
   @override
-  Future<List<MilkRecord>> fetchMilkRecords({DateTime? date}) async {
-    try {
-      final response = await dio.get(ApiEndpoints.milkRecords,
-          queryParameters: date != null
-              ? {'date': date.toIso8601String()}
-              : null);
+  Future<MilkRecordResponse> createMilkRecord(
+      CreateMilkRecordRequest request) async {
+    final response = await _dioClient.post(
+      ApiEndpoints.milkRecords,
+      data: request.toJson(),
+    );
 
-      final List<dynamic> data = response.data as List<dynamic>;
-      return data
-          .map((json) => MilkRecord(
-                farmerPhoneNumber: json['farmer_phone_number'],
-                quantity: (json['quantity'] as num).toDouble(),
-                price: (json['price'] as num).toDouble(),
-                date: DateTime.parse(json['date']),
-              ))
+    return MilkRecordResponse.fromJson(response.data);
+  }
+
+  @override
+  Future<history.FarmerHistoryResponse> getFarmerHistory(
+      String phoneNumber) async {
+    // ✅ Use prefix
+    try {
+      final response = await _dioClient.get(
+        '/milk-record/farmer-history',
+        queryParameters: {'phone': phoneNumber},
+      );
+
+      // ✅ Extract nested data and parse correctly
+      final apiData = response.data['data'] as Map<String, dynamic>;
+
+      final records = (apiData['records'] as List<dynamic>)
+          .map((record) => history.MilkHistoryRecord.fromJson(
+              record as Map<String, dynamic>)) // ✅ Use prefix
           .toList();
-    } on DioException catch (e) {
-      throw Exception('Failed to fetch milk records: ${e.message}');
+
+      final totalLiters =
+          (apiData['totalLitersDeliveredByFarmer'] as num).toDouble();
+
+      final message = response.data['message'] as String? ??
+          'Records retrieved successfully';
+
+      final meta = response.data.containsKey('meta')
+          ? history.MetaData.fromJson(
+              response.data['meta'] as Map<String, dynamic>) // ✅ Use prefix
+          : null;
+
+      return history.FarmerHistoryResponse(
+        // ✅ Use prefix
+        records: records,
+        totalLitersDeliveredByFarmer: totalLiters,
+        message: message,
+        meta: meta,
+      );
+    } catch (e) {
+      print('❌ Error fetching farmer history: $e');
+      rethrow;
     }
   }
 }

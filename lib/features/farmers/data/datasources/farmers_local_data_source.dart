@@ -1,39 +1,44 @@
 import 'package:hive/hive.dart';
+import '../../../../core/constants/hive_boxes.dart';
 import '../models/farmer_model.dart';
 
-
 abstract class FarmersLocalDataSource {
-  Future<List<Farmer>> getAllFarmers();
-  Future<void> addFarmer(Farmer farmer);
+  Future<List<Farmer>> getFarmers(); // ✅ Changed from getAllFarmers
+  Future<void> saveFarmer(Farmer farmer); // ✅ Changed from addFarmer
+  Future<void> saveFarmers(List<Farmer> farmers); // ✅ Added for bulk save
   Future<Farmer?> getFarmerByPhone(String phoneNumber);
   Future<void> updateFarmer(Farmer farmer);
-  Future<void> deleteFarmer(String id);
+  Future<void> deleteFarmer(int id); // ✅ Changed String to int
 }
 
 class FarmersLocalDataSourceImpl implements FarmersLocalDataSource {
-  final Box<Farmer> farmersBox;
+  FarmersLocalDataSourceImpl(); // ✅ No constructor parameters
 
-  FarmersLocalDataSourceImpl(this.farmersBox);
+  Box<Farmer> get _farmersBox => Hive.box<Farmer>(HiveBoxes.farmersBox);
 
   @override
-  Future<void> addFarmer(Farmer farmer) async {
-    await farmersBox.put(farmer.id, farmer);
+  Future<List<Farmer>> getFarmers() async {
+    return _farmersBox.values.toList();
   }
 
   @override
-  Future<void> deleteFarmer(String id) async {
-    await farmersBox.delete(id);
+  Future<void> saveFarmer(Farmer farmer) async {
+    await _farmersBox.put(farmer.id, farmer);
   }
 
   @override
-  Future<List<Farmer>> getAllFarmers() async {
-    return farmersBox.values.toList();
+  Future<void> saveFarmers(List<Farmer> farmers) async {
+    for (var farmer in farmers) {
+      await _farmersBox.put(farmer.id, farmer);
+    }
   }
 
   @override
   Future<Farmer?> getFarmerByPhone(String phoneNumber) async {
     try {
-      return farmersBox.values.firstWhere((farmer) => farmer.phoneNumber == phoneNumber);
+      return _farmersBox.values.firstWhere(
+        (farmer) => farmer.phoneNumber == phoneNumber,
+      );
     } on StateError {
       return null;
     }
@@ -41,6 +46,11 @@ class FarmersLocalDataSourceImpl implements FarmersLocalDataSource {
 
   @override
   Future<void> updateFarmer(Farmer farmer) async {
-    await farmersBox.put(farmer.id, farmer);
+    await _farmersBox.put(farmer.id, farmer);
+  }
+
+  @override
+  Future<void> deleteFarmer(int id) async {
+    await _farmersBox.delete(id);
   }
 }

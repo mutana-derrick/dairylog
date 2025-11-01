@@ -1,71 +1,95 @@
 import '../datasources/farmers_local_data_source.dart';
 import '../datasources/farmers_remote_data_source.dart';
 import '../models/farmer_model.dart';
+import '../models/create_farmer_request.dart';
 
-abstract class FarmersRepository {
-  Future<List<Farmer>> getAllFarmers();
-  Future<Farmer?> getFarmerByPhone(String phoneNumber);
-  Future<void> addFarmer(Farmer farmer);
-  Future<void> updateFarmer(Farmer farmer);
-  Future<void> deleteFarmer(String id);
-}
+class FarmersRepository {
+  final FarmersLocalDataSource _localDataSource;
+  final FarmersRemoteDataSource _remoteDataSource;
 
-class FarmersRepositoryImpl implements FarmersRepository {
-  final FarmersLocalDataSource localDataSource;
-  final FarmersRemoteDataSource remoteDataSource;
+  FarmersRepository({
+    required FarmersLocalDataSource localDataSource,
+    required FarmersRemoteDataSource remoteDataSource,
+  })  : _localDataSource = localDataSource,
+        _remoteDataSource = remoteDataSource;
 
-  FarmersRepositoryImpl({
-    required this.localDataSource,
-    required this.remoteDataSource,
-  });
-
-  @override
-  Future<void> addFarmer(Farmer farmer) async {
-    await localDataSource.addFarmer(farmer);
+  /// Load farmers from API and sync to local storage
+  Future<List<Farmer>> loadFarmers() async {
     try {
-      await remoteDataSource.addFarmer(farmer);
-    } catch (_) {
-      // handle offline scenario: keep local only
-    }
-  }
+      final response = await _remoteDataSource.getFarmers(limit: 100);
 
-  @override
-  Future<void> deleteFarmer(String id) async {
-    await localDataSource.deleteFarmer(id);
-    try {
-      await remoteDataSource.deleteFarmer(id);
-    } catch (_) {}
-  }
-
-  @override
-  Future<List<Farmer>> getAllFarmers() async {
-    final localFarmers = await localDataSource.getAllFarmers();
-    if (localFarmers.isNotEmpty) return localFarmers;
-
-    try {
-      final remoteFarmers = await remoteDataSource.fetchAllFarmers();
-      for (var farmer in remoteFarmers) {
-        await localDataSource.addFarmer(farmer);
+      if (!response.success) {
+        throw Exception(response.message);
       }
-      return remoteFarmers;
-    } catch (_) {
-      return localFarmers;
+
+      await _localDataSource.saveFarmers(response.data);
+      return response.data;
+    } catch (e) {
+      return await _localDataSource.getFarmers();
     }
   }
 
-  @override
-  Future<Farmer?> getFarmerByPhone(String phoneNumber) async {
-    final localFarmer = await localDataSource.getFarmerByPhone(phoneNumber);
-    if (localFarmer != null) return localFarmer;
-    // Optionally, fetch from remote if not found locally
-    return null;
+  /// Get farmers from local storage
+  Future<List<Farmer>> getLocalFarmers() async {
+    return await _localDataSource.getFarmers();
   }
 
-  @override
-  Future<void> updateFarmer(Farmer farmer) async {
-    await localDataSource.updateFarmer(farmer);
+  /// Create new farmer
+  Future<Farmer> createFarmer({
+    required String name,
+    required String phoneNumber,
+    required String sector,
+    required String cell,
+    required String village,
+  }) async {
+    final request = CreateFarmerRequest(
+      farmerName: name,
+      phoneNumber: phoneNumber,
+      sector: sector,
+      cell: cell,
+      village: village,
+    );
+
+    final response = await _remoteDataSource.createFarmer(request);
+
+    if (!response.success || response.data == null) {
+      throw Exception(response.message);
+    }
+
+    final farmer = Farmer(
+      id: response.data!.id,
+      name: name,
+      phoneNumber: phoneNumber,
+      sector: sector,
+      cell: cell,
+      village: village,
+      createdAt: DateTime.now(),
+    );
+
+    await _localDataSource.saveFarmer(farmer);
+    return farmer;
+  }
+
+  /// Lookup farmer by phone number
+  Future<Farmer?> lookupFarmer(String phoneNumber) async {
     try {
-      await remoteDataSource.updateFarmer(farmer);
-    } catch (_) {}
+      final response = await _remoteDataSource.lookupFarmer(phoneNumber);
+
+      if (!response.success || response.data == null) {
+        return null;
+      }
+
+      // Save to local cache
+      await _localDataSource.saveFarmer(response.data!);
+      return response.data;
+    } catch (e) {
+      // If API fails, try local cache
+      return await _localDataSource.getFarmerByPhone(phoneNumber);
+    }
+  }
+
+  /// Delete farmer
+  Future<void> deleteFarmer(int id) async {
+    await _localDataSource.deleteFarmer(id);
   }
 }

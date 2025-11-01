@@ -1,35 +1,45 @@
 import 'package:hive/hive.dart';
+import '../../../../core/constants/hive_boxes.dart';
 import '../models/milk_record_model.dart';
-// import '../../../../core/constants/hive_boxes.dart';
 
-abstract class MilkLocalDataSource {
-  Future<void> addMilkRecord(MilkRecord record);
-  Future<List<MilkRecord>> getAllMilkRecords();
-  Future<List<MilkRecord>> getMilkRecordsByDate(DateTime date);
+abstract class MilkRecordsLocalDataSource {
+  Future<List<MilkRecord>> getMilkRecords();
+  Future<void> saveMilkRecord(MilkRecord record);
+  Future<void> saveMilkRecords(List<MilkRecord> records);
+  Future<void> deleteMilkRecord(int id);
+  Future<void> clearAllRecords();
 }
 
-class MilkLocalDataSourceImpl implements MilkLocalDataSource {
-  final Box<MilkRecord> milkBox;
+class MilkRecordsLocalDataSourceImpl implements MilkRecordsLocalDataSource {
+  MilkRecordsLocalDataSourceImpl();
 
-  MilkLocalDataSourceImpl(this.milkBox);
+  Box<MilkRecord> get _recordsBox =>
+      Hive.box<MilkRecord>(HiveBoxes.milkRecordsBox);
 
   @override
-  Future<void> addMilkRecord(MilkRecord record) async {
-    await milkBox.put('${record.farmerPhoneNumber}-${record.date.toIso8601String()}', record);
+  Future<List<MilkRecord>> getMilkRecords() async {
+    return _recordsBox.values.toList();
   }
 
   @override
-  Future<List<MilkRecord>> getAllMilkRecords() async {
-    return milkBox.values.toList();
+  Future<void> saveMilkRecord(MilkRecord record) async {
+    await _recordsBox.put(record.id, record);
   }
 
   @override
-  Future<List<MilkRecord>> getMilkRecordsByDate(DateTime date) async {
-    return milkBox.values
-        .where((record) =>
-            record.date.year == date.year &&
-            record.date.month == date.month &&
-            record.date.day == date.day)
-        .toList();
+  Future<void> saveMilkRecords(List<MilkRecord> records) async {
+    for (var record in records) {
+      await _recordsBox.put(record.id, record);
+    }
+  }
+
+  @override
+  Future<void> deleteMilkRecord(int id) async {
+    await _recordsBox.delete(id);
+  }
+
+  @override
+  Future<void> clearAllRecords() async {
+    await _recordsBox.clear();
   }
 }

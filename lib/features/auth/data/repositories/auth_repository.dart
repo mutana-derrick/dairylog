@@ -22,34 +22,35 @@ class AuthRepository {
     required String username,
     required String password,
   }) async {
-    // Call API
+    // Call login API
     final request = LoginRequest(username: username, password: password);
     final response = await _remoteDataSource.login(request);
 
-    // Check if login was successful
     if (!response.success || response.data == null) {
       throw Exception(response.message);
     }
 
-    // Save tokens to secure storage
+    // Save tokens
     await _storageService.saveTokens(
       accessToken: response.data!.token.accessToken,
       refreshToken: response.data!.token.refreshToken,
     );
 
-    // TODO: Fetch user profile from API using the token
-    // For now, create a placeholder user
-    // You'll need to call GET /profile or similar endpoint
-    final user = UserModel(
-      id: 'temp_id', // Replace with actual user ID from profile API
-      name: username, // Replace with actual name from profile API
-      email: '$username@example.com', // Replace with actual email
-      phone: '', // Replace with actual phone
+    // Fetch user profile
+    final profileResponse = await _remoteDataSource.getUserProfile();
+
+    if (!profileResponse.success || profileResponse.data == null) {
+      throw Exception('Failed to fetch user profile');
+    }
+
+    // Combine profile data with tokens
+    final user = profileResponse.data!.copyWithTokens(
       accessToken: response.data!.token.accessToken,
       refreshToken: response.data!.token.refreshToken,
     );
 
-    // Save user to local database
+    // Save user ID and user data
+    await _storageService.saveUserId(user.id);
     await _localDataSource.saveUser(user);
 
     return user;
@@ -58,9 +59,20 @@ class AuthRepository {
   /// Logout user
   Future<void> logout() async {
     try {
-      await _remoteDataSource.logout();
+      final refreshToken = await _storageService.getRefreshToken();
+
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        // ✅ Just call logout with refreshToken
+        // The API doesn't require userId in the request body
+        await _remoteDataSource.logout(refreshToken);
+      }
+    } catch (e) {
+      // Continue with local cleanup even if API fails
+      print('Logout API failed: $e');
     } finally {
-      // Always clear local data, even if API call fails
+      // ✅ Clear all local data
+      await _storageService.clearTokens();
+      await _storageService.deleteUserId(); // ✅ Add this method
       await _localDataSource.deleteUser();
     }
   }
@@ -73,5 +85,28 @@ class AuthRepository {
   /// Get current user
   Future<UserModel?> getCurrentUser() async {
     return await _localDataSource.getUser();
+  }
+
+  /// Refresh tokens
+  Future<void> refreshTokens() async {
+    final refreshToken = await _storageService.getRefreshToken();
+    final userId = await _storageService.getUserId();
+
+    if (refreshToken == null || userId == null) {
+      throw Exception('Missing refresh token or user ID');
+    }
+
+    // ✅ Call refresh API with both refreshToken and userId
+    final response = await _remoteDataSource.refreshToken(refreshToken, userId);
+
+    if (!response.success || response.data == null) {
+      throw Exception('Failed to refresh tokens');
+    }
+
+    // Save new tokens
+    await _storageService.saveTokens(
+      accessToken: response.data!.token.accessToken,
+      refreshToken: response.data!.token.refreshToken,
+    );
   }
 }

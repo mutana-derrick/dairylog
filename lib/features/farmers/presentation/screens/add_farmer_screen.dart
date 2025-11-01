@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../widgets/farmer_form.dart';
 import '../../providers/farmers_provider.dart';
 
-class AddFarmerScreen extends ConsumerWidget {
+class AddFarmerScreen extends ConsumerStatefulWidget {
   const AddFarmerScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AddFarmerScreen> createState() => _AddFarmerScreenState();
+}
+
+class _AddFarmerScreenState extends ConsumerState<AddFarmerScreen> {
+  bool _isSubmitting = false;
+
+  @override
+  Widget build(BuildContext context) {
     final notifier = ref.read(farmersNotifierProvider.notifier);
 
     return Scaffold(
@@ -20,7 +28,7 @@ class AddFarmerScreen extends ConsumerWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
@@ -29,7 +37,7 @@ class AddFarmerScreen extends ConsumerWidget {
           children: [
             _buildHeader(context),
             const SizedBox(height: AppSpacing.md),
-            _buildFormCard(context, notifier, ref),
+            _buildFormCard(context, notifier),
             const SizedBox(height: AppSpacing.xl),
           ],
         ),
@@ -100,11 +108,7 @@ class AddFarmerScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFormCard(
-    BuildContext context,
-    dynamic notifier,
-    WidgetRef ref,
-  ) {
+  Widget _buildFormCard(BuildContext context, FarmersNotifier notifier) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       decoration: BoxDecoration(
@@ -115,18 +119,52 @@ class AddFarmerScreen extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: FarmerForm(
+          isLoading: _isSubmitting, // ✅ Pass loading state
           onSubmit: (farmerData) async {
-            // ignore: unnecessary_null_comparison
-            if (farmerData == null) {
-              ToastUtils.showError('Invalid farmer data');
-              return;
-            }
+            if (_isSubmitting) return;
+
+            setState(() => _isSubmitting = true);
+
             try {
-              await notifier.addFarmer(farmerData);
-              ToastUtils.showSuccess('Farmer added successfully!');
-              Navigator.pop(context);
+              // ✅ Call API with data from form
+              await notifier.addFarmer(
+                name: farmerData['name']!,
+                phoneNumber: farmerData['phone']!,
+                sector: farmerData['sector']!,
+                cell: farmerData['cell']!,
+                village: farmerData['village']!,
+              );
+
+              if (mounted) {
+                ToastUtils.showSuccess('Farmer added successfully!');
+                context.pop(); // Navigate back
+              }
             } catch (e) {
-              ToastUtils.showError('Failed to add farmer: $e');
+              if (mounted) {
+                // ✅ Parse error messages from API
+                String errorMessage = 'Failed to add farmer';
+
+                final errorString = e.toString().toLowerCase();
+
+                if (errorString.contains('409') ||
+                    errorString.contains('conflict') ||
+                    errorString.contains('already registered')) {
+                  errorMessage = 'Phone number is already registered';
+                } else if (errorString.contains('validation')) {
+                  errorMessage = 'Please check your input fields';
+                } else if (errorString.contains('network') ||
+                    errorString.contains('socket')) {
+                  errorMessage = 'Network error. Check your connection';
+                } else if (errorString.contains('unauthorized')) {
+                  errorMessage = 'Session expired. Please login again';
+                }
+
+                ToastUtils.showError(errorMessage);
+              }
+            } finally {
+              if (mounted) {
+                setState(() => _isSubmitting = false);
+              }
             }
           },
         ),

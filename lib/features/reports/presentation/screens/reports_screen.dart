@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../common/widgets/bottom_nav_bar.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../../milk_records/providers/milk_provider.dart';
+import '../../providers/reports_provider.dart';
 import '../../../milk_records/data/models/milk_record_model.dart';
 import '../widgets/period_record_card.dart';
 
@@ -19,6 +19,31 @@ class ReportsScreen extends ConsumerStatefulWidget {
 class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   String _selectedPeriod = 'Daily';
   final int _currentIndex = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load today's data on screen open
+    Future.microtask(() {
+      _loadDataForPeriod();
+    });
+  }
+
+  void _loadDataForPeriod() {
+    final notifier = ref.read(reportsNotifierProvider.notifier);
+
+    switch (_selectedPeriod) {
+      case 'Daily':
+        notifier.loadTodayReports();
+        break;
+      case 'Weekly':
+        notifier.loadWeekReports();
+        break;
+      case 'Monthly':
+        notifier.loadMonthReports();
+        break;
+    }
+  }
 
   void _onNavTap(BuildContext context, int index) {
     if (_currentIndex == index) return;
@@ -44,48 +69,50 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final milkState = ref.watch(milkProvider);
-    final groupedRecords = _groupRecordsByPeriod(milkState.records);
-
-    // Calculate totals
-    final totalLiters = milkState.records.fold<double>(
-      0,
-      (sum, record) => sum + record.quantity,
-    );
-    final totalRevenue = milkState.records.fold<double>(
-      0,
-      (sum, record) => sum + (record.quantity * record.price),
-    );
+    final reportsState = ref.watch(reportsNotifierProvider);
+    final groupedRecords = _groupRecordsByPeriod(reportsState);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Reports'),
         elevation: 0,
+        actions: [
+          // Refresh button
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: reportsState.isLoading ? null : _loadDataForPeriod,
+          ),
+        ],
       ),
       body: Column(
         children: [
           // Header with period selector
-          _buildHeader(totalLiters, totalRevenue),
+          _buildHeader(reportsState),
 
           // Records list
           Expanded(
-            child: milkState.isLoading
+            child: reportsState.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : groupedRecords.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        itemCount: groupedRecords.length,
-                        itemBuilder: (context, index) {
-                          final entry = groupedRecords[index];
-                          return PeriodRecordCard(
-                            period: entry['period'] as String,
-                            records: entry['records'] as List<MilkRecord>,
-                            selectedPeriodType: _selectedPeriod,
-                          );
-                        },
-                      ),
+                : reportsState.error != null
+                    ? _buildErrorState(reportsState.error!)
+                    : groupedRecords.isEmpty
+                        ? _buildEmptyState()
+                        : RefreshIndicator(
+                            onRefresh: () async => _loadDataForPeriod(),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              itemCount: groupedRecords.length,
+                              itemBuilder: (context, index) {
+                                final entry = groupedRecords[index];
+                                return PeriodRecordCard(
+                                  period: entry['period'] as String,
+                                  records: entry['records'] as List<MilkRecord>,
+                                  selectedPeriodType: _selectedPeriod,
+                                );
+                              },
+                            ),
+                          ),
           ),
         ],
       ),
@@ -96,7 +123,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     );
   }
 
-  Widget _buildHeader(double totalLiters, double totalRevenue) {
+  Widget _buildHeader(ReportsState state) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -167,13 +194,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                           child: Text(period),
                         );
                       }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            _selectedPeriod = newValue;
-                          });
-                        }
-                      },
+                      onChanged: state.isLoading
+                          ? null
+                          : (String? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  _selectedPeriod = newValue;
+                                });
+                                _loadDataForPeriod();
+                              }
+                            },
                     ),
                   ),
                 ],
@@ -186,7 +216,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                   Expanded(
                     child: _buildStatCard(
                       'Total Liters',
-                      totalLiters.toStringAsFixed(1),
+                      state.totalLiters.toStringAsFixed(1),
                       Icons.water_drop,
                       Colors.blue.shade300,
                     ),
@@ -195,7 +225,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                   Expanded(
                     child: _buildStatCard(
                       'Total Revenue',
-                      'RWF ${NumberFormat('#,###').format(totalRevenue)}',
+                      'RWF ${NumberFormat('#,###').format(state.totalRevenue)}',
                       Icons.payments,
                       Colors.green.shade300,
                     ),
@@ -224,12 +254,15 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(height: 2),
@@ -245,39 +278,29 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _groupRecordsByPeriod(List<MilkRecord> records) {
-    if (records.isEmpty) return [];
+  List<Map<String, dynamic>> _groupRecordsByPeriod(ReportsState state) {
+    if (state.allRecords.isEmpty) return [];
 
-    final Map<String, List<MilkRecord>> grouped = {};
+    Map<String, List<MilkRecord>> grouped;
 
-    for (var record in records) {
-      String periodKey;
-
-      switch (_selectedPeriod) {
-        case 'Daily':
-          periodKey = DateFormat('EEEE, MMM d, yyyy').format(record.date);
-          break;
-        case 'Weekly':
-          final weekStart = record.date.subtract(Duration(days: record.date.weekday - 1));
-          final weekEnd = weekStart.add(const Duration(days: 6));
-          periodKey = '${DateFormat('MMM d').format(weekStart)} - ${DateFormat('MMM d, yyyy').format(weekEnd)}';
-          break;
-        case 'Monthly':
-          periodKey = DateFormat('MMMM yyyy').format(record.date);
-          break;
-        default:
-          periodKey = DateFormat('MMM d, yyyy').format(record.date);
-      }
-
-      if (!grouped.containsKey(periodKey)) {
-        grouped[periodKey] = [];
-      }
-      grouped[periodKey]!.add(record);
+    switch (_selectedPeriod) {
+      case 'Daily':
+        grouped = ref.read(reportsNotifierProvider.notifier).groupByDay();
+        break;
+      case 'Weekly':
+        grouped = ref.read(reportsNotifierProvider.notifier).groupByWeek();
+        break;
+      case 'Monthly':
+        grouped = ref.read(reportsNotifierProvider.notifier).groupByMonth();
+        break;
+      default:
+        grouped = ref.read(reportsNotifierProvider.notifier).groupByDay();
     }
 
     // Sort by date (most recent first)
     final sortedEntries = grouped.entries.toList()
-      ..sort((a, b) => b.value.first.date.compareTo(a.value.first.date));
+      ..sort((a, b) =>
+          b.value.first.recordedAt.compareTo(a.value.first.recordedAt));
 
     return sortedEntries.map((entry) {
       return {
@@ -285,6 +308,56 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         'records': entry.value,
       };
     }).toList();
+  }
+
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                size: 64,
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            const Text(
+              'Failed to Load Reports',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              error,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ElevatedButton.icon(
+              onPressed: _loadDataForPeriod,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildEmptyState() {
@@ -318,13 +391,19 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.sm),
-            const Text(
-              'Start collecting milk records to\ngenerate reports',
-              style: TextStyle(
+            Text(
+              'No milk collections found for ${_selectedPeriod.toLowerCase()} period',
+              style: const TextStyle(
                 fontSize: 15,
                 color: AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ElevatedButton.icon(
+              onPressed: () => context.push('/addMilkRecord'),
+              icon: const Icon(Icons.add),
+              label: const Text('Add Record'),
             ),
           ],
         ),
