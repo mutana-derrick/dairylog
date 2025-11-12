@@ -326,7 +326,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       label: 'Add Farmer',
                                       color: AppColors.secondary,
                                       onTap: () {
-                                        context.push('/addFarmer');
+                                        context.push('/addFarmers');
                                       },
                                     ),
                                   ),
